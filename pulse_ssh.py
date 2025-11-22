@@ -10,8 +10,8 @@ about_info = {
     "description": "An SSH connection manager with terminal multiplexing",
     "license": "GPL-3.0",
     "developer": "Syco",
-    "website": "https://github.com/syco/PulseSSH",
-    "issue_url": "https://github.com/syco/PulseSSH/issues"
+    "website": "https://github.com/PulseSSH/PulseSSH.git",
+    "issue_url": "https://github.com/PulseSSH/PulseSSH.git/issues"
 }
 
 class VersionInfoAction(argparse.Action):
