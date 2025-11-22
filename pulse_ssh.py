@@ -24,6 +24,82 @@ class VersionInfoAction(argparse.Action):
         print(f"Find the source code at: {about_info['website']}")
         parser.exit()
 
+def run_gtk_app(args):
+    """Initializes and runs the GTK application."""
+    try:
+        import gi
+        gi.require_version('Adw', '1')
+        gi.require_version('Gdk', '4.0')
+        from gi.repository import Adw
+        from gi.repository import GLib
+        import libs.MainWindow as pulse_ssh
+        import signal
+
+        class PulseSSHApp(Adw.Application):
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+                self.add_main_option(
+                    "config-dir",
+                    0,
+                    GLib.OptionFlags.NONE,
+                    GLib.OptionArg.STRING,
+                    "Path to the configuration directory",
+                    "path"
+                )
+                self.add_main_option(
+                    "readonly",
+                    0,
+                    GLib.OptionFlags.NONE,
+                    GLib.OptionArg.NONE,
+                    "Run in read-only mode",
+                    None
+                )
+                self.add_main_option(
+                    "version",
+                    ord("v"),
+                    GLib.OptionFlags.NONE,
+                    GLib.OptionArg.NONE,
+                    "Show version information and exit",
+                    None
+                )
+                self.connect('activate', self.on_activate)
+                self.connect('handle-local-options', self.on_handle_local_options)
+
+            def on_handle_local_options(self, app, options):
+                self.config_dir = options.lookup_value("config-dir", None)
+                if self.config_dir:
+                    self.config_dir = self.config_dir.get_string()
+                else:
+                    self.config_dir = os.path.expanduser("~/.config/pulse_ssh")
+                self.readonly = options.lookup_value("readonly", None) is not None
+
+                if options.lookup_value("version", None) is not None:
+                    print(f"PulseSSH {__version__} - {about_info['description']}.")
+                    print(f"Copyright (c) 2025 {about_info['developer']}.")
+                    print(f"Find the source code at: {about_info['website']}")
+                    return 0
+
+                return -1
+
+            def on_activate(self, app):
+                self.win = pulse_ssh.MainWindow(
+                    self, config_dir=self.config_dir, readonly=self.readonly, about_info=about_info
+                )
+                self.win.present()
+
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        app = PulseSSHApp(application_id="net.rinaudo.pulse_ssh")
+        exit_status = app.run(sys.argv)
+        sys.exit(exit_status)
+
+    except ImportError:
+        run_curses_app(args)
+
+def run_curses_app(args):
+    """Initializes and runs the Curses application."""
+    import libs.CursesWindow as curses_app
+    curses_app.CursesWindow(config_dir=args.config_dir).run()
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="PulseSSH: An SSH connection manager with terminal multiplexing.",
@@ -58,28 +134,6 @@ terminal-based (ncurses) interface.
     args = parser.parse_args()
 
     if args.ncurses or not os.environ.get('DISPLAY'):
-        import libs.CursesWindow as curses_app
-        curses_app.CursesWindow(config_dir=args.config_dir).run()
+        run_curses_app(args)
     else:
-        import gi
-        gi.require_version('Adw', '1')
-        gi.require_version('Gdk', '4.0')
-        from gi.repository import Adw
-        import libs.MainWindow as pulse_ssh
-        import signal
-
-        signal.signal(signal.SIGINT, signal.SIG_DFL)
-
-        class PulseSSHApp(Adw.Application):
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-                self.connect('activate', self.on_activate)
-
-            def on_activate(self, app):
-                self.win = pulse_ssh.MainWindow(
-                    self, config_dir=args.config_dir, readonly=args.readonly, about_info=about_info
-                )
-                self.win.present()
-
-        app = PulseSSHApp(application_id="net.rinaudo.pulse_ssh")
-        sys.exit(app.run(sys.argv))
+        run_gtk_app(args)
