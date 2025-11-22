@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=PulseSSH
+Comment=An SSH connection manager with terminal multiplexing.
+Exec=python pulse_ssh.py
+Icon=res/pulse_ssh.svg
+Terminal=false
+StartupNotify=false
+Categories=Application;
+StartupWMClass=net.rinaudo.pulse_ssh
