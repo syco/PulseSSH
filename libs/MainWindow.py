@@ -79,6 +79,12 @@ class MainWindow(Adw.ApplicationWindow):
         stackswitcher button {
             border-radius: 0;
         }
+        .custom-header-bar {
+            background-color: transparent;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+        }
         """)
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
@@ -96,28 +102,31 @@ class MainWindow(Adw.ApplicationWindow):
         self.top_bar.set_visible(self.app_config.sidebar_on_right)
 
     def _build_ui(self):
-        self.panel_stack = Gtk.Stack()
+        self.panel_stack = Adw.ViewStack()
 
         self.connections_view = connections_view.ConnectionsView(self)
         connections_widget = self.connections_view.getAdwToolbarView()
-        self.panel_stack.add_titled(connections_widget, "connections", "Connections")
+        self.panel_stack.add_titled(connections_widget, "connections", "")
         self.panel_stack.get_page(connections_widget).set_icon_name("network-wired-symbolic")
 
         self.clusters_view = clusters_view.ClustersView(self)
         clusters_widget = self.clusters_view.getAdwToolbarView()
-        self.panel_stack.add_titled(clusters_widget, "clusters", "Clusters")
+        self.panel_stack.add_titled(clusters_widget, "clusters", "")
         self.panel_stack.get_page(clusters_widget).set_icon_name("drive-multidisk-symbolic")
 
         self.commands_history_view = commands_history_view.CommandsHistoryView(self)
         history_widget = self.commands_history_view.getAdwToolbarView()
-        self.panel_stack.add_titled(history_widget, "history", "History")
+        self.panel_stack.add_titled(history_widget, "history", "")
         self.panel_stack.get_page(history_widget).set_icon_name("view-history-symbolic")
 
-        stack_switcher = Gtk.StackSwitcher()
+        stack_switcher = Adw.ViewSwitcher(policy=Adw.ViewSwitcherPolicy.WIDE)
         stack_switcher.set_stack(self.panel_stack)
 
+        switcher_container = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False, title_widget=stack_switcher)
+        switcher_container.add_css_class("custom-header-bar")
+
         self.side_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.side_panel.append(stack_switcher)
+        self.side_panel.append(switcher_container)
         self.side_panel.append(self.panel_stack)
 
         sidebar_page = Adw.NavigationPage.new(self.side_panel, "Sidebar")
@@ -1003,7 +1012,7 @@ class MainWindow(Adw.ApplicationWindow):
         timestamp = GLib.DateTime.new_now_local().format("%Y-%m-%d %H:%M:%S")
 
         def wait_for_key_behavior():
-            message = f"\r\n\n--- SSH connection closed at {timestamp}.\r\n--- Press Enter to restart.\r\n--- Press Esc to close terminal.\r\n"
+            message = f"\r\n\r\n --- SSH connection closed at {timestamp}.\r\n --- Press Enter to restart.\r\n --- Press Esc to close terminal.\r\n"
             terminal.feed(message.encode('utf-8'))
 
             evk = Gtk.EventControllerKey()
