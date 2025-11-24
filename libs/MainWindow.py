@@ -4,12 +4,14 @@ import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
+gi.require_version('Vte', '3.91')
 
 from gi.repository import Adw
 from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository import GLib
 from gi.repository import Gtk
+from gi.repository import Vte
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -400,7 +402,7 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_copy_shortcut(self, *args):
         focused_widget = self.get_focus()
         if isinstance(focused_widget, vte_terminal.VteTerminal):
-            focused_widget.copy_clipboard_format(Gtk.ClipboardFormat.STRING)
+            focused_widget.copy_clipboard_format(Vte.Format.TEXT)
         return True
 
     def _on_paste_shortcut(self, *args):
