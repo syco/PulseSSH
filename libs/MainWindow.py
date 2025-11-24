@@ -107,12 +107,12 @@ class MainWindow(Adw.ApplicationWindow):
         self.connections_view = connections_view.ConnectionsView(self)
         connections_widget = self.connections_view.getAdwToolbarView()
         self.panel_stack.add_titled(connections_widget, "connections", "")
-        self.panel_stack.get_page(connections_widget).set_icon_name("network-wired-symbolic")
+        self.panel_stack.get_page(connections_widget).set_icon_name("utilities-terminal-symbolic")
 
         self.clusters_view = clusters_view.ClustersView(self)
         clusters_widget = self.clusters_view.getAdwToolbarView()
         self.panel_stack.add_titled(clusters_widget, "clusters", "")
-        self.panel_stack.get_page(clusters_widget).set_icon_name("drive-multidisk-symbolic")
+        self.panel_stack.get_page(clusters_widget).set_icon_name("view-group-symbolic")
 
         self.commands_history_view = commands_history_view.CommandsHistoryView(self)
         history_widget = self.commands_history_view.getAdwToolbarView()
@@ -988,11 +988,11 @@ class MainWindow(Adw.ApplicationWindow):
         connected_terminals = sum(1 for t in terminals if t.connected)
 
         if connected_terminals == total_terminals:
-            page.set_indicator_icon(Gio.Icon.new_for_string("emblem-ok-symbolic"))
+            page.set_indicator_icon(Gio.Icon.new_for_string("emblem-mounted"))
         elif connected_terminals > 0:
-            page.set_indicator_icon(Gio.Icon.new_for_string("emblem-synchronizing-symbolic"))
+            page.set_indicator_icon(Gio.Icon.new_for_string("emblem-warning"))
         else:
-            page.set_indicator_icon(Gio.Icon.new_for_string("emblem-error-symbolic"))
+            page.set_indicator_icon(Gio.Icon.new_for_string("emblem-unmounted"))
 
     def on_terminal_child_exited(self, terminal: vte_terminal.VteTerminal, status: int, conn: connection.Connection):
         terminal.connected = False
@@ -1041,7 +1041,9 @@ class MainWindow(Adw.ApplicationWindow):
         elif behavior == "wait_for_key":
             wait_for_key_behavior()
 
-    def replace_terminal(self, old_terminal, new_scrolled_window):
+    def replace_terminal(self, old_terminal: vte_terminal.VteTerminal, new_scrolled_window: Gtk.ScrolledWindow):
+        page = old_terminal.get_ancestor_page()
+
         old_scrolled_window = old_terminal.get_parent()
         parent = old_scrolled_window.get_parent()
         if not parent:
@@ -1054,6 +1056,8 @@ class MainWindow(Adw.ApplicationWindow):
                 parent.set_start_child(new_scrolled_window)
             else:
                 parent.set_end_child(new_scrolled_window)
+        if page:
+            self.updatePageTitle(page)
 
     def show_error_dialog(self, title, message):
         dialog = Adw.MessageDialog(
