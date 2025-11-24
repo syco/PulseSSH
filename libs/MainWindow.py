@@ -972,12 +972,14 @@ class MainWindow(Adw.ApplicationWindow):
         if not content:
             page.set_title("Empty Tab")
             page.set_indicator_icon(None)
+            page.set_needs_attention(False)
             return
 
         terminals = self._find_all_terminals_in_widget(content)
         if not terminals:
             page.set_title("Empty Tab")
             page.set_indicator_icon(None)
+            page.set_needs_attention(False)
             return
 
         conn_names = [t.pulse_conn.name for t in terminals if hasattr(t, 'pulse_conn')]
@@ -989,10 +991,13 @@ class MainWindow(Adw.ApplicationWindow):
 
         if connected_terminals == total_terminals:
             page.set_indicator_icon(Gio.Icon.new_for_string("emblem-mounted"))
+            page.set_needs_attention(False)
         elif connected_terminals > 0:
             page.set_indicator_icon(Gio.Icon.new_for_string("emblem-warning"))
+            page.set_needs_attention(True)
         else:
             page.set_indicator_icon(Gio.Icon.new_for_string("emblem-unmounted"))
+            page.set_needs_attention(True)
 
     def on_terminal_child_exited(self, terminal: vte_terminal.VteTerminal, status: int, conn: connection.Connection):
         terminal.connected = False
