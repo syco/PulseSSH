@@ -31,7 +31,6 @@ class ConnectionDialog(Adw.Window):
         ok_button.connect("clicked", lambda w: self.emit("response", Gtk.ResponseType.OK))
 
         self.set_default_widget(ok_button)
-        ok_button.grab_focus()
 
         self.conn = conn
         content = self._build_ui()

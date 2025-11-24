@@ -40,7 +40,6 @@ class ClusterDialog(Adw.Window):
         ok_button.connect("clicked", lambda w: self.emit("response", Gtk.ResponseType.OK))
 
         self.set_default_widget(ok_button)
-        ok_button.grab_focus()
 
         content = self._build_ui()
 

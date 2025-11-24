@@ -142,9 +142,6 @@ def substitute_variables(command: str, conn: connection.Connection, proxy_port: 
     if not command:
         return ""
 
-    if conn.identity_file and conn.key_passphrase:
-        command = command.replace(f'${{{key}}}', str(value))
-
     substitutions = asdict(conn)
     if proxy_port:
         substitutions['proxy_port'] = proxy_port

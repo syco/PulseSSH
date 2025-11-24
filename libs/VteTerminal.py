@@ -290,6 +290,8 @@ class VteTerminal(Vte.Terminal):
         return False
 
     def apply_theme(self):
+        self.set_audible_bell(self.app_window.app_config.audible_bell)
+
         font_desc = Pango.FontDescription.from_string(f"{self.app_window.app_config.font_family} {self.app_window.app_config.font_size}")
         self.set_font(font_desc)
 
