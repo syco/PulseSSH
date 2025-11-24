@@ -364,10 +364,9 @@ class MainWindow(Adw.ApplicationWindow):
         return True
 
     def _on_search_shortcut(self, *args):
-        current_page = self.panel_stack.get_child_by_name(self.panel_stack.get_visible_child_name())
-        if current_page == 0:
+        if self.panel_stack.get_visible_child_name() == "connections":
             self.connections_view.filter_entry.grab_focus()
-        elif current_page == 1:
+        elif self.panel_stack.get_visible_child_name() == "clusters":
             self.clusters_view.filter_entry.grab_focus()
         return True
 

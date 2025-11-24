@@ -90,7 +90,7 @@ class ConnectionsView():
         self.filter_entry.connect("search-changed", self.filter_changed_callback)
         self.filter_entry.connect("activate", self.filter_entry_activated_callback)
 
-        self.filter = Gtk.CustomFilter.new(self.filter_list_function, self.tree_store)
+        self.filter = Gtk.CustomFilter.new(self.filter_list_function)
         self.filter_model = Gtk.FilterListModel(model=self.tree_store, filter=self.filter)
         self.selection_model = Gtk.MultiSelection(model=self.filter_model)
 
@@ -212,7 +212,7 @@ class ConnectionsView():
             self.app_window.open_connection_tab(node.connection_data)
             self.filter_entry.set_text("")
 
-    def filter_list_function(self, item, model):
+    def filter_list_function(self, item):
         search_text = self.filter_entry.get_text().lower()
         if not search_text:
             return True
