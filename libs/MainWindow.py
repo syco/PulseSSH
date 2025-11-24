@@ -645,6 +645,28 @@ class MainWindow(Adw.ApplicationWindow):
 
         return submenu
 
+    def _rename_tab(self, action, param, terminal, page):
+        if not page:
+            return
+
+        dialog = Adw.MessageDialog(transient_for=self, modal=True, heading="Rename Tab")
+        entry = Adw.EntryRow(title="Tab Name", text=page.get_title(), activates_default=True)
+        dialog.set_extra_child(entry)
+
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("rename", "Rename")
+        dialog.set_response_appearance("rename", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("rename")
+
+        def on_response(d, response_id):
+            if response_id == "rename":
+                new_title = entry.get_text().strip()
+                page.custom_title = new_title if new_title else None
+                self.updatePageTitle(page)
+
+        dialog.connect("response", on_response)
+        dialog.present()
+
     def _create_new_cluster(self, terminal):
         def on_name_received(cluster_name):
             if cluster_name:
@@ -976,15 +998,19 @@ class MainWindow(Adw.ApplicationWindow):
             return
 
         terminals = self._find_all_terminals_in_widget(content)
-        if not terminals:
-            page.set_title("Empty Tab")
-            page.set_indicator_icon(None)
-            page.set_needs_attention(False)
-            return
 
-        conn_names = [t.pulse_conn.name for t in terminals if hasattr(t, 'pulse_conn')]
-        unique_names = list(set(dict.fromkeys(conn_names)))
-        page.set_title(" + ".join(unique_names))
+        custom_title = page.custom_title if hasattr(page, 'custom_title') else None
+        if custom_title:
+            page.set_title(custom_title)
+        else:
+            if terminals:
+                conn_names = [t.pulse_conn.name for t in terminals if hasattr(t, 'pulse_conn')]
+                unique_names = list(set(dict.fromkeys(conn_names)))
+                page.set_title(" + ".join(unique_names))
+            else:
+                page.set_title("Empty Tab")
+                page.set_indicator_icon(None)
+                page.set_needs_attention(False)
 
         total_terminals = len(terminals)
         connected_terminals = sum(1 for t in terminals if t.connected)
