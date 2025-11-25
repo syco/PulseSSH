@@ -55,6 +55,7 @@ class ClustersView():
         self.filter_entry = Gtk.SearchEntry(placeholder_text="Filter clusters...")
         self.filter_entry.connect("search-changed", self.filter_changed_callback)
         self.filter_entry.connect("activate", self.filter_entry_activated_callback)
+        self.filter_entry.set_hexpand(True)
 
         self.filter = Gtk.CustomFilter.new(self.filter_list_function)
         filter_model = Gtk.FilterListModel(model=self.root_store, filter=self.filter)
@@ -66,6 +67,14 @@ class ClustersView():
         key_controller = Gtk.EventControllerKey()
         key_controller.connect("key-pressed", self.on_key_pressed)
         self.list_view.add_controller(key_controller)
+
+        focus_controller = Gtk.EventControllerFocus()
+        focus_controller.connect("leave", self._on_filter_focus_changed)
+        self.filter_entry.add_controller(focus_controller)
+
+        filter_key_controller = Gtk.EventControllerKey()
+        filter_key_controller.connect("key-pressed", self._on_filter_entry_key_pressed)
+        self.filter_entry.add_controller(filter_key_controller)
 
         content = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
         content.set_child(self.list_view)
@@ -83,11 +92,12 @@ class ClustersView():
         local_term_btn.connect("clicked", self.open_local_terminal)
         bottom_bar.pack_end(local_term_btn)
 
-        header_bar = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False)
-        header_bar.set_title_widget(self.filter_entry)
+        self.filter_header_bar = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False)
+        self.filter_header_bar.set_title_widget(self.filter_entry)
+        self.filter_header_bar.set_visible(False)
 
         toolbar_view = Adw.ToolbarView(content = content)
-        toolbar_view.add_top_bar(header_bar)
+        toolbar_view.add_top_bar(self.filter_header_bar)
         toolbar_view.add_bottom_bar(bottom_bar)
 
         self.populate_tree()
@@ -105,11 +115,24 @@ class ClustersView():
         is_modifier = state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK | Gdk.ModifierType.SUPER_MASK)
 
         if not is_modifier and unichar and chr(unichar).isprintable():
+            self.filter_header_bar.set_visible(True)
             self.filter_entry.grab_focus()
             self.filter_entry.set_text(self.filter_entry.get_text() + chr(unichar))
             self.filter_entry.set_position(-1)
             return Gdk.EVENT_STOP
 
+        return Gdk.EVENT_PROPAGATE
+
+    def _on_filter_focus_changed(self, controller):
+        if not self.filter_entry.get_text():
+            self.filter_header_bar.set_visible(False)
+
+    def _on_filter_entry_key_pressed(self, controller, keyval, keycode, state):
+        if keyval == Gdk.KEY_Escape:
+            self.filter_entry.set_text("")
+            self.filter_header_bar.set_visible(False)
+            self.list_view.grab_focus()
+            return Gdk.EVENT_STOP
         return Gdk.EVENT_PROPAGATE
 
     def populate_tree(self):

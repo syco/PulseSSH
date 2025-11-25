@@ -166,7 +166,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         self._setup_shortcuts()
 
-        self.connections_view.filter_entry.grab_focus()
+        self.connections_view.list_view.grab_focus()
 
     def _save_window_state(self):
         if not self.is_maximized():
@@ -376,8 +376,10 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_search_shortcut(self, *args):
         if self.panel_stack.get_visible_child_name() == "connections":
             self.connections_view.filter_entry.grab_focus()
+            self.connections_view.filter_header_bar.set_visible(True)
         elif self.panel_stack.get_visible_child_name() == "clusters":
             self.clusters_view.filter_entry.grab_focus()
+            self.clusters_view.filter_header_bar.set_visible(True)
         return True
 
     def _on_duplicate_shortcut(self, *args):
