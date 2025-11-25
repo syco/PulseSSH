@@ -48,7 +48,8 @@ class AppConfigDialog(Adw.Window):
 
     def __init__(self, parent, config: app_config.AppConfig, about_info: dict):
         super().__init__(title="Application Configuration", transient_for=parent, modal=True)
-        self.set_default_size(400, 300)
+        screen_height = Gdk.Display.get_default().get_primary_monitor().get_geometry().height
+        self.set_default_size(700, screen_height / 1.3)
 
         cancel_button = Gtk.Button.new_with_mnemonic("_Cancel")
         cancel_button.connect("clicked", lambda w: self.emit("response", Gtk.ResponseType.CANCEL))

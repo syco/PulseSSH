@@ -29,7 +29,8 @@ class ClusterDialog(Adw.Window):
 
     def __init__(self, parent, connections: Dict[str, connection.Connection], cluster: Optional[cluster.Cluster] = None):
         super().__init__(title="Cluster Configuration", transient_for=parent, modal=True)
-        self.set_default_size(400, 500)
+        screen_height = Gdk.Display.get_default().get_primary_monitor().get_geometry().height
+        self.set_default_size(700, screen_height / 1.3)
 
         self.cluster = cluster
         self.connections = connections
