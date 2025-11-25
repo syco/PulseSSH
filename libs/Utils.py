@@ -132,6 +132,11 @@ def save_cache_config(config_dir: str, readonly: bool, cache_config_: cache_conf
     with open(cfg_path, 'w') as f:
         json.dump(asdict(cache_config_), f, indent=4)
 
+def connectionsSortFunction(e: connection.Connection) -> str:
+    if not e.folder:
+        return f"zzz/{e.name.lower()}"
+    return f"{e.folder.lower()}/{e.name.lower()}"
+
 def get_free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(('', 0))

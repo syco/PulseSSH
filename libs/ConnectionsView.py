@@ -98,8 +98,8 @@ class ConnectionsView():
         key_controller.connect("key-pressed", self.on_key_pressed)
         self.list_view.add_controller(key_controller)
 
-        content = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
-        content.set_child(self.list_view)
+        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
+        scrolled_window.set_child(self.list_view)
 
         bottom_bar = Adw.HeaderBar(show_title = False, show_start_title_buttons=False, show_end_title_buttons=False)
         add_btn = Gtk.Button(icon_name="list-add-symbolic")
@@ -117,7 +117,7 @@ class ConnectionsView():
         header_bar = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False)
         header_bar.set_title_widget(self.filter_entry)
 
-        toolbar_view = Adw.ToolbarView(content = content)
+        toolbar_view = Adw.ToolbarView(content = scrolled_window)
         toolbar_view.add_top_bar(header_bar)
         toolbar_view.add_bottom_bar(bottom_bar)
 
@@ -158,12 +158,7 @@ class ConnectionsView():
             parent_gio_list_store.append(new_folder_item)
             return new_folder_item
 
-        def sortFunction(e):
-            if not e.folder:
-                return f"zzz/{e.name.lower()}"
-            return f"{e.folder.lower()}/{e.name.lower()}"
-
-        for c in sorted(self.app_window.connections.values(), key=sortFunction):
+        for c in sorted(self.app_window.connections.values(), key=utils.connectionsSortFunction):
             listItem = connection_list_item.ConnectionListItem(c.name, c)
             if listItem:
                 if c.folder:

@@ -14,12 +14,13 @@ from typing import Dict
 from typing import Optional
 import libs.Cluster as cluster
 import libs.Connection as connection
+import libs.Utils as utils
 
 class ConnectionCheckListItem(GObject.Object):
-    def __init__(self, connection: connection.Connection, is_checked: bool):
+    def __init__(self, connection: connection.Connection, check_button: Gtk.CheckButton):
         super().__init__()
         self.connection = connection
-        self.is_checked = is_checked
+        self.check_button = check_button
 
 class ClusterDialog(Adw.Window):
     __gsignals__ = {
@@ -69,8 +70,7 @@ class ClusterDialog(Adw.Window):
             self.emit("response", Gtk.ResponseType.OK)
             return True
 
-    def on_filter_changed(self, entry):
-        """Called when the filter entry text changes."""
+    def filter_changed_callback(self, entry):
         self.filter.changed(Gtk.FilterChange.DIFFERENT)
 
     def _build_ui(self):
@@ -94,61 +94,97 @@ class ClusterDialog(Adw.Window):
 
         self.connections_store = Gio.ListStore(item_type=ConnectionCheckListItem)
         checked_uuids = self.cluster.connection_uuids if self.cluster else []
-        for conn in sorted(self.connections.values(), key=lambda c: c.name.lower()):
-            self.connections_store.append(ConnectionCheckListItem(conn, conn.uuid in checked_uuids))
-
-        self.filter = Gtk.CustomFilter.new(self._filter_func)
-        self.filtered_model = Gtk.FilterListModel(model=self.connections_store, filter=self.filter)
+        for conn in sorted(self.connections.values(), key=utils.connectionsSortFunction):
+            check_button = Gtk.CheckButton(valign=Gtk.Align.CENTER)
+            check_button.set_active(conn.uuid in checked_uuids)
+            self.connections_store.append(ConnectionCheckListItem(conn, check_button))
 
         factory = Gtk.SignalListItemFactory()
-        factory.connect("setup", self._setup_conn_list_item)
-        factory.connect("bind", self._bind_conn_list_item)
-
-        selection_model = Gtk.NoSelection(model=self.filtered_model)
-        list_view = Gtk.ListView(model=selection_model, factory=factory)
-
-        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True, min_content_height=200)
-        scrolled_window.set_child(list_view)
-
-        grid.attach(Gtk.Label(label="Connections", xalign=0, valign=Gtk.Align.START), 0, 3, 1, 1)
-        grid.attach(scrolled_window, 1, 3, 1, 1)
+        factory.connect("setup", self.setup_list_item)
+        factory.connect("bind", self.bind_list_item)
 
         self.filter_entry = Gtk.SearchEntry(placeholder_text="Filter connections...")
-        self.filter_entry.connect("search-changed", self.on_filter_changed)
-        filter_row = Adw.ActionRow(title="Filter")
-        filter_row.add_suffix(self.filter_entry)
+        self.filter_entry.connect("search-changed", self.filter_changed_callback)
+        self.filter_entry.connect("activate", self.filter_entry_activated_callback)
+
+        self.filter = Gtk.CustomFilter.new(self.filter_list_function)
+        self.filtered_model = Gtk.FilterListModel(model=self.connections_store, filter=self.filter)
+        self.selection_model = Gtk.NoSelection(model=self.filtered_model)
+
+        self.list_view = Gtk.ListView(model=self.selection_model, factory=factory)
+
+        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
+        scrolled_window.set_child(self.list_view)
+
+        select_all_check = Gtk.CheckButton(valign=Gtk.Align.CENTER)
+        select_all_check.connect("toggled", self._on_select_all_toggled)
+
+        filter_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, margin_bottom=6)
+        filter_row.set_homogeneous(False)
+        filter_row.append(self.filter_entry)
+        filter_row.append(select_all_check)
+
+        self.filter_entry.set_hexpand(True)
+        select_all_check.set_margin_end(18)
+        select_all_check.set_tooltip_text("Select/Deselect All Connections")
+
         connections_group.add(filter_row)
         connections_group.add(scrolled_window)
 
         return page
 
-    def _setup_conn_list_item(self, factory, list_item):
+    def setup_list_item(self, factory, list_item):
         row = Adw.ActionRow()
+        list_item.row = row
         list_item.set_child(row)
 
-    def _bind_conn_list_item(self, factory, list_item):
-        row = list_item.get_child()
+    def bind_list_item(self, factory, list_item):
+        row = list_item.row
         item = list_item.get_item()
+        check_button = item.check_button
+
+        if row.get_activatable_widget():
+            row.remove(row.get_activatable_widget())
 
         conn = item.connection
         label_text = conn.name
         if conn.folder:
             label_text = f"{conn.folder}/{conn.name}"
         row.set_title(GLib.markup_escape_text(label_text))
-
-        check_button = Gtk.CheckButton()
-        check_button.set_active(item.is_checked)
-        check_button.set_valign(Gtk.Align.CENTER)
         row.add_suffix(check_button)
         row.set_activatable_widget(check_button)
 
-        check_button.connect("toggled", self._on_check_button_toggled, item)
+    def _on_select_all_toggled(self, check_button):
+        for i in range(self.selection_model.get_n_items()):
+            item = self.selection_model.get_item(i)
+            if item:
+                item.check_button.set_active(False)
 
-    def _on_check_button_toggled(self, check_button, item):
-        item.is_checked = check_button.get_active()
+        is_active = check_button.get_active()
+        if is_active:
+            for i in range(self.filtered_model.get_n_items()):
+                item = self.filtered_model.get_item(i)
+                if item:
+                    item.check_button.set_active(True)
 
-    def _filter_func(self, item):
-        """The filter function for the connections list."""
+        self.filter.changed(Gtk.FilterChange.DIFFERENT)
+
+    def filter_entry_activated_callback(self, entry):
+        selection = self.selection_model.get_selection()
+        if selection.get_size() == 0:
+            return
+
+        position = selection.get_nth(0)
+        tree_row = self.filter_model.get_item(position)
+        if not tree_row:
+            return
+
+        node = tree_row.get_item()
+        if node and node.connection_data:
+            self.app_window.open_connection_tab(node.connection_data)
+            self.filter_entry.set_text("")
+
+    def filter_list_function(self, item):
         search_text = self.filter_entry.get_text().lower()
         if not search_text:
             return True
@@ -164,7 +200,7 @@ class ClusterDialog(Adw.Window):
         selected_uuids = []
         for i in range(self.connections_store.get_n_items()):
             item = self.connections_store.get_item(i)
-            if item.is_checked:
+            if item.check_button.get_active():
                 selected_uuids.append(item.connection.uuid)
 
         open_mode_str = self.open_mode_dropdown.get_selected_item().get_string()

@@ -25,7 +25,6 @@ class VersionInfoAction(argparse.Action):
         parser.exit()
 
 def run_gtk_app(args):
-    """Initializes and runs the GTK application."""
     try:
         import gi
         gi.require_version('Adw', '1')
@@ -54,14 +53,6 @@ def run_gtk_app(args):
                     "Run in read-only mode",
                     None
                 )
-                self.add_main_option(
-                    "version",
-                    ord("v"),
-                    GLib.OptionFlags.NONE,
-                    GLib.OptionArg.NONE,
-                    "Show version information and exit",
-                    None
-                )
                 self.connect('activate', self.on_activate)
                 self.connect('handle-local-options', self.on_handle_local_options)
 
@@ -72,12 +63,6 @@ def run_gtk_app(args):
                 else:
                     self.config_dir = os.path.expanduser("~/.config/pulse_ssh")
                 self.readonly = options.lookup_value("readonly", None) is not None
-
-                if options.lookup_value("version", None) is not None:
-                    print(f"PulseSSH {__version__} - {about_info['description']}.")
-                    print(f"Copyright (c) 2025 {about_info['developer']}.")
-                    print(f"Find the source code at: {about_info['website']}")
-                    return 0
 
                 return -1
 
@@ -96,7 +81,6 @@ def run_gtk_app(args):
         run_curses_app(args)
 
 def run_curses_app(args):
-    """Initializes and runs the Curses application."""
     import libs.CursesWindow as curses_app
     curses_app.CursesWindow(config_dir=args.config_dir).run()
 
