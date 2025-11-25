@@ -534,7 +534,7 @@ class MainWindow(Adw.ApplicationWindow):
             paned.set_start_child(build_grid(start_items, is_vertical, total_items))
             paned.set_end_child(build_grid(end_items, is_vertical, total_items))
 
-            GLib.idle_add(lambda: paned.set_position(paned.get_allocated_width() * len(start_items) // len(items) if not is_vertical else paned.get_allocated_height() * len(start_items) // len(items)))
+            GLib.idle_add(self._set_paned_position, paned, len(start_items), len(items), is_vertical)
             return paned
 
         def do_open(cluster_id=None):
@@ -561,6 +561,18 @@ class MainWindow(Adw.ApplicationWindow):
                 self._ask_for_cluster_name(do_open)
                 return
         do_open()
+
+    def _set_paned_position(self, paned: Gtk.Paned, start_items_len: int, items_len: int, is_vertical: bool):
+        print("Setting paned position after idle")
+        if is_vertical:
+            allocated_size = paned.get_allocated_height()
+            if allocated_size > 0:
+                paned.set_position(allocated_size * start_items_len // items_len)
+        else:
+            allocated_size = paned.get_allocated_width()
+            if allocated_size > 0:
+                paned.set_position(allocated_size * start_items_len // items_len)
+        return GLib.SOURCE_REMOVE
 
     def open_connection_tab(self, conn: connection.Connection, cluster_id: Optional[str] = None):
         terminal = self.create_terminal(conn, cluster_id)
@@ -826,16 +838,20 @@ class MainWindow(Adw.ApplicationWindow):
         except GLib.Error as e:
             self.show_error_dialog("Manual Script Failed", f"Failed to execute command:\n{substituted_cmd}\n\n{e.message}")
 
-    def build_paned_widget(self, orientation):
+    def build_paned_widget(self, orientation, source_content: Gtk.Widget, target_content: Gtk.Widget) -> Gtk.Paned:
         paned = Gtk.Paned(orientation=orientation, wide_handle=False)
-        def on_map(p):
-            if p.get_orientation() == Gtk.Orientation.HORIZONTAL and p.get_width() > 0:
-                p.set_position(p.get_width() // 2)
-            elif p.get_orientation() == Gtk.Orientation.VERTICAL and p.get_height() > 0:
-                p.set_position(p.get_height() // 2)
+        paned.set_start_child(source_content)
+        paned.set_end_child(target_content)
+
+        def set_paned_position(p):
+            if p.get_orientation() == Gtk.Orientation.HORIZONTAL:
+                p.set_position(p.get_allocated_width() // 2)
             else:
-                GLib.idle_add(on_map, p)
-        paned.connect_after("map", on_map)
+                p.set_position(p.get_allocated_height() // 2)
+            return GLib.SOURCE_REMOVE
+
+        paned.connect_after("map", lambda p: GLib.idle_add(set_paned_position, p))
+
         return paned
 
     def split_terminal_or_tab(self, action, param, terminal, source_page, source_page_idx, orientation, target_page, target_page_idx):
@@ -862,9 +878,7 @@ class MainWindow(Adw.ApplicationWindow):
             target_content.unparent()
             self.notebook.close_page(target_page)
 
-        paned = self.build_paned_widget(orientation=orientation)
-        paned.set_start_child(source_content)
-        paned.set_end_child(target_content)
+        paned = self.build_paned_widget(orientation, source_content, target_content)
 
         source_container.append(paned)
 
@@ -894,9 +908,7 @@ class MainWindow(Adw.ApplicationWindow):
                 target_content.unparent()
                 self.notebook.close_page(target_page)
 
-            paned = self.build_paned_widget(orientation=orientation)
-            paned.set_start_child(source_scrolled_window)
-            paned.set_end_child(target_content)
+            paned = self.build_paned_widget(orientation, source_scrolled_window, target_content)
 
             if is_start_child:
                 parent.set_start_child(paned)

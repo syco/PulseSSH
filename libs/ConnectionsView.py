@@ -5,8 +5,6 @@ gi.require_version('Adw', '1')
 gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
 
-from dataclasses import asdict
-from dataclasses import fields
 from gi.repository import Adw
 from gi.repository import Gdk
 from gi.repository import Gio
@@ -19,7 +17,6 @@ import libs.Connection as connection
 import libs.ConnectionDialog as connection_dialog
 import libs.ConnectionListItem as connection_list_item
 import libs.Utils as utils
-import uuid
 
 if TYPE_CHECKING:
     from libs.MainWindow import MainWindow
