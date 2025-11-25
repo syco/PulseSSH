@@ -5,8 +5,6 @@ gi.require_version('Adw', '1')
 gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
 
-from dataclasses import asdict
-from dataclasses import fields
 from gi.repository import Adw
 from gi.repository import Gdk
 from gi.repository import Gio
@@ -19,7 +17,6 @@ import libs.Connection as connection
 import libs.ConnectionDialog as connection_dialog
 import libs.ConnectionListItem as connection_list_item
 import libs.Utils as utils
-import uuid
 
 if TYPE_CHECKING:
     from libs.MainWindow import MainWindow
@@ -89,20 +86,29 @@ class ConnectionsView():
         self.filter_entry = Gtk.SearchEntry(placeholder_text="Filter connections...")
         self.filter_entry.connect("search-changed", self.filter_changed_callback)
         self.filter_entry.connect("activate", self.filter_entry_activated_callback)
+        self.filter_entry.set_hexpand(True)
 
-        self.filter = Gtk.CustomFilter.new(self.filter_list_function, self.tree_store)
+        self.filter = Gtk.CustomFilter.new(self.filter_list_function)
         self.filter_model = Gtk.FilterListModel(model=self.tree_store, filter=self.filter)
         self.selection_model = Gtk.MultiSelection(model=self.filter_model)
 
-        list_view = Gtk.ListView(model=self.selection_model, factory=factory)
-        list_view.connect("activate", self.item_activated_callback)
+        self.list_view = Gtk.ListView(model=self.selection_model, factory=factory)
+        self.list_view.connect("activate", self.item_activated_callback)
 
         key_controller = Gtk.EventControllerKey()
         key_controller.connect("key-pressed", self.on_key_pressed)
-        list_view.add_controller(key_controller)
+        self.list_view.add_controller(key_controller)
 
-        content = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
-        content.set_child(list_view)
+        focus_controller = Gtk.EventControllerFocus()
+        focus_controller.connect("leave", self._on_filter_focus_changed)
+        self.filter_entry.add_controller(focus_controller)
+
+        filter_key_controller = Gtk.EventControllerKey()
+        filter_key_controller.connect("key-pressed", self._on_filter_entry_key_pressed)
+        self.filter_entry.add_controller(filter_key_controller)
+
+        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
+        scrolled_window.set_child(self.list_view)
 
         bottom_bar = Adw.HeaderBar(show_title = False, show_start_title_buttons=False, show_end_title_buttons=False)
         add_btn = Gtk.Button(icon_name="list-add-symbolic")
@@ -117,11 +123,12 @@ class ConnectionsView():
         local_term_btn.connect("clicked", self.open_local_terminal)
         bottom_bar.pack_end(local_term_btn)
 
-        header_bar = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False)
-        header_bar.set_title_widget(self.filter_entry)
+        self.filter_header_bar = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False)
+        self.filter_header_bar.set_title_widget(self.filter_entry)
+        self.filter_header_bar.set_visible(False)
 
-        toolbar_view = Adw.ToolbarView(content = content)
-        toolbar_view.add_top_bar(header_bar)
+        toolbar_view = Adw.ToolbarView(content = scrolled_window)
+        toolbar_view.add_top_bar(self.filter_header_bar)
         toolbar_view.add_bottom_bar(bottom_bar)
 
         self.populate_tree()
@@ -139,6 +146,7 @@ class ConnectionsView():
         is_modifier = state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK | Gdk.ModifierType.SUPER_MASK)
 
         if not is_modifier and unichar and chr(unichar).isprintable():
+            self.filter_header_bar.set_visible(True)
             self.filter_entry.grab_focus()
             self.filter_entry.set_text(self.filter_entry.get_text() + chr(unichar))
             self.filter_entry.set_position(-1)
@@ -146,10 +154,22 @@ class ConnectionsView():
 
         return Gdk.EVENT_PROPAGATE
 
+    def _on_filter_focus_changed(self, controller):
+        if not self.filter_entry.get_text():
+            self.filter_header_bar.set_visible(False)
+
+    def _on_filter_entry_key_pressed(self, controller, keyval, keycode, state):
+        if keyval == Gdk.KEY_Escape:
+            self.filter_entry.set_text("")
+            self.filter_header_bar.set_visible(False)
+            self.list_view.grab_focus()
+            return Gdk.EVENT_STOP
+        return Gdk.EVENT_PROPAGATE
+
     def populate_tree(self):
         self.root_store.remove_all()
 
-        def find_or_create_folder(parent_gio_list_store: Gio.ListStore, folder_name, parent_path: str):
+        def find_or_create_folder(parent_gio_list_store: Gio.ListStore, folder_name, parent_path: str) -> connection_list_item.ConnectionListItem:
             for i in range(parent_gio_list_store.get_n_items()):
                 item = parent_gio_list_store.get_item(i)
                 if not item.connection_data and item.name == folder_name:
@@ -161,24 +181,22 @@ class ConnectionsView():
             parent_gio_list_store.append(new_folder_item)
             return new_folder_item
 
-        def sortFunction(e):
-            if not e.folder:
-                return f"zzz/{e.name.lower()}"
-            return f"{e.folder.lower()}/{e.name.lower()}"
-
-        for c in sorted(self.app_window.connections.values(), key=sortFunction):
-            if c.folder:
-                path_parts = c.folder.split('/')
-                parent_path = ""
-                current_gio_list_store = self.root_store
-                for part in path_parts:
-                    if part:
-                        folder_item = find_or_create_folder(current_gio_list_store, part, parent_path)
-                        current_gio_list_store = folder_item.children_store
-                        parent_path = folder_item.path
-                current_gio_list_store.append(connection_list_item.ConnectionListItem(c.name, c))
-            elif c.uuid != "local":
-                self.root_store.append(connection_list_item.ConnectionListItem(c.name, c))
+        for c in sorted(self.app_window.connections.values(), key=utils.connectionsSortFunction):
+            listItem = connection_list_item.ConnectionListItem(c.name, c)
+            if listItem:
+                if c.folder:
+                    path_parts = c.folder.split('/')
+                    parent_path = ""
+                    current_gio_list_store = self.root_store
+                    for part in path_parts:
+                        if part:
+                            folder_item = find_or_create_folder(current_gio_list_store, part, parent_path)
+                            current_gio_list_store = folder_item.children_store
+                            parent_path = folder_item.path or ""
+                    if current_gio_list_store is not None:
+                        current_gio_list_store.append(listItem)
+                else:
+                    self.root_store.append(listItem)
         self.filter.changed(Gtk.FilterChange.DIFFERENT)
 
     def filter_changed_callback(self, entry):
@@ -194,6 +212,7 @@ class ConnectionsView():
             conn_item = item.get_item()
             if conn_item.connection_data:
                 self.selection_model.select_item(x, True)
+                self.list_view.scroll_to(x, Gtk.ListScrollFlags.FOCUS, None)
                 break
         return GLib.SOURCE_REMOVE
 
@@ -212,7 +231,7 @@ class ConnectionsView():
             self.app_window.open_connection_tab(node.connection_data)
             self.filter_entry.set_text("")
 
-    def filter_list_function(self, item, model):
+    def filter_list_function(self, item):
         search_text = self.filter_entry.get_text().lower()
         if not search_text:
             return True
@@ -239,9 +258,11 @@ class ConnectionsView():
         return check_item_and_children(conn_item)
 
     def build_menu(self, gesture, n_press, x, y, list_item):
-        if not self.selection_model.is_selected(list_item.get_position()):
+        cur_position = list_item.get_position()
+        if not self.selection_model.is_selected(cur_position):
             self.selection_model.unselect_all()
-            self.selection_model.select_item(list_item.get_position(), True)
+            self.selection_model.select_item(cur_position, True)
+            self.list_view.scroll_to(cur_position, Gtk.ListScrollFlags.FOCUS, None)
 
         selection_bitset = self.selection_model.get_selection()
 
@@ -420,6 +441,35 @@ class ConnectionsView():
 
         if response_id == Gtk.ResponseType.OK or response_id == Gtk.ResponseType.CANCEL:
             dialog.destroy()
+
+    def select_connection_from_terminal(self, terminal):
+        if not terminal or not hasattr(terminal, 'pulse_conn') or not terminal.pulse_conn:
+            self.selection_model.unselect_all()
+            return
+
+        conn_uuid = terminal.pulse_conn.uuid
+        if conn_uuid == "local":
+            self.selection_model.unselect_all()
+            return
+
+        def find_item_position(model, uuid_to_find):
+            for i in range(model.get_n_items()):
+                tree_row = model.get_item(i)
+                if not tree_row:
+                    continue
+                item = tree_row.get_item()
+                if item and item.connection_data and item.connection_data.uuid == uuid_to_find:
+                    return i
+            return -1
+
+        position = find_item_position(self.filter_model, conn_uuid)
+
+        if position != -1:
+            self.selection_model.unselect_all()
+            self.selection_model.select_item(position, True)
+            self.list_view.scroll_to(position, Gtk.ListScrollFlags.FOCUS, None)
+        else:
+            self.selection_model.unselect_all()
 
     def item_activated_callback(self, list_view, position):
         selection = self.selection_model.get_selection()

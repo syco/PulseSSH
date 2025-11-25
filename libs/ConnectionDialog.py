@@ -21,7 +21,8 @@ class ConnectionDialog(Adw.Window):
 
     def __init__(self, parent, conn: Optional[connection.Connection] = None):
         super().__init__(title="Connection Configuration", transient_for=parent, modal=True)
-        self.set_default_size(600, 400)
+        screen_height = Gdk.Display.get_default().get_primary_monitor().get_geometry().height
+        self.set_default_size(700, screen_height / 1.3)
 
         cancel_button = Gtk.Button.new_with_mnemonic("_Cancel")
         cancel_button.connect("clicked", lambda w: self.emit("response", Gtk.ResponseType.CANCEL))
@@ -31,7 +32,6 @@ class ConnectionDialog(Adw.Window):
         ok_button.connect("clicked", lambda w: self.emit("response", Gtk.ResponseType.OK))
 
         self.set_default_widget(ok_button)
-        ok_button.grab_focus()
 
         self.conn = conn
         content = self._build_ui()

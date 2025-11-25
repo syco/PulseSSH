@@ -48,7 +48,8 @@ class AppConfigDialog(Adw.Window):
 
     def __init__(self, parent, config: app_config.AppConfig, about_info: dict):
         super().__init__(title="Application Configuration", transient_for=parent, modal=True)
-        self.set_default_size(400, 300)
+        screen_height = Gdk.Display.get_default().get_primary_monitor().get_geometry().height
+        self.set_default_size(700, screen_height / 1.3)
 
         cancel_button = Gtk.Button.new_with_mnemonic("_Cancel")
         cancel_button.connect("clicked", lambda w: self.emit("response", Gtk.ResponseType.CANCEL))
@@ -61,7 +62,6 @@ class AppConfigDialog(Adw.Window):
         apply_button.connect("clicked", lambda w: self.emit("response", Gtk.ResponseType.APPLY))
 
         self.set_default_widget(ok_button)
-        ok_button.grab_focus()
 
         content = self._build_ui(config, about_info)
 
@@ -199,6 +199,9 @@ class AppConfigDialog(Adw.Window):
 
         self.split_at_root = Adw.SwitchRow(title="Split at the Root", subtitle="Splits the whole tab area instead of just the current terminal", active=config.split_at_root)
         behavior_group.add(self.split_at_root)
+
+        self.audible_bell = Adw.SwitchRow(title="Audible Bell", subtitle="Enable the terminal bell sound", active=config.audible_bell)
+        behavior_group.add(self.audible_bell)
 
         scrolling_group = Adw.PreferencesGroup(title="Scrolling")
         page.add(scrolling_group)
@@ -527,6 +530,7 @@ class AppConfigDialog(Adw.Window):
             scroll_on_insert=self.scroll_on_insert.get_active(),
             scrollbar_visible=self.scrollbar_visible.get_active(),
             sidebar_on_right=self.sidebar_on_right.get_active(),
+            audible_bell=self.audible_bell.get_active(),
             ssh_forward_agent=self.ssh_forward_agent.get_active(),
             ssh_compression=self.ssh_compression.get_active(),
             ssh_x11_forwarding=self.ssh_x11_forwarding.get_active(),

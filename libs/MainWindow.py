@@ -4,12 +4,14 @@ import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
+gi.require_version('Vte', '3.91')
 
 from gi.repository import Adw
 from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository import GLib
 from gi.repository import Gtk
+from gi.repository import Vte
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -77,6 +79,12 @@ class MainWindow(Adw.ApplicationWindow):
         stackswitcher button {
             border-radius: 0;
         }
+        .custom-header-bar {
+            background-color: transparent;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+        }
         """)
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
@@ -94,28 +102,31 @@ class MainWindow(Adw.ApplicationWindow):
         self.top_bar.set_visible(self.app_config.sidebar_on_right)
 
     def _build_ui(self):
-        self.panel_stack = Gtk.Stack()
+        self.panel_stack = Adw.ViewStack()
 
         self.connections_view = connections_view.ConnectionsView(self)
         connections_widget = self.connections_view.getAdwToolbarView()
-        self.panel_stack.add_titled(connections_widget, "connections", "Connections")
-        self.panel_stack.get_page(connections_widget).set_icon_name("network-wired-symbolic")
+        self.panel_stack.add_titled(connections_widget, "connections", "")
+        self.panel_stack.get_page(connections_widget).set_icon_name("utilities-terminal-symbolic")
 
         self.clusters_view = clusters_view.ClustersView(self)
         clusters_widget = self.clusters_view.getAdwToolbarView()
-        self.panel_stack.add_titled(clusters_widget, "clusters", "Clusters")
-        self.panel_stack.get_page(clusters_widget).set_icon_name("drive-multidisk-symbolic")
+        self.panel_stack.add_titled(clusters_widget, "clusters", "")
+        self.panel_stack.get_page(clusters_widget).set_icon_name("view-group-symbolic")
 
         self.commands_history_view = commands_history_view.CommandsHistoryView(self)
         history_widget = self.commands_history_view.getAdwToolbarView()
-        self.panel_stack.add_titled(history_widget, "history", "History")
+        self.panel_stack.add_titled(history_widget, "history", "")
         self.panel_stack.get_page(history_widget).set_icon_name("view-history-symbolic")
 
-        stack_switcher = Gtk.StackSwitcher()
+        stack_switcher = Adw.ViewSwitcher(policy=Adw.ViewSwitcherPolicy.WIDE)
         stack_switcher.set_stack(self.panel_stack)
 
+        switcher_container = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False, title_widget=stack_switcher)
+        switcher_container.add_css_class("custom-header-bar")
+
         self.side_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.side_panel.append(stack_switcher)
+        self.side_panel.append(switcher_container)
         self.side_panel.append(self.panel_stack)
 
         sidebar_page = Adw.NavigationPage.new(self.side_panel, "Sidebar")
@@ -123,6 +134,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.notebook = Adw.TabView()
         self.notebook.set_vexpand(True)
         self.notebook.connect("close-page", self.on_notebook_close_page)
+        self.notebook.connect("notify::selected-page", self._on_tab_switched)
         self.connect("close-request", self.on_window_close_request)
 
         tab_bar = Adw.TabBar(autohide=False, expand_tabs=False, view=self.notebook)
@@ -154,7 +166,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         self._setup_shortcuts()
 
-        self.connections_view.filter_entry.grab_focus()
+        self.connections_view.list_view.grab_focus()
 
     def _save_window_state(self):
         if not self.is_maximized():
@@ -362,11 +374,12 @@ class MainWindow(Adw.ApplicationWindow):
         return True
 
     def _on_search_shortcut(self, *args):
-        current_page = self.panel_stack.get_child_by_name(self.panel_stack.get_visible_child_name())
-        if current_page == 0:
+        if self.panel_stack.get_visible_child_name() == "connections":
             self.connections_view.filter_entry.grab_focus()
-        elif current_page == 1:
+            self.connections_view.filter_header_bar.set_visible(True)
+        elif self.panel_stack.get_visible_child_name() == "clusters":
             self.clusters_view.filter_entry.grab_focus()
+            self.clusters_view.filter_header_bar.set_visible(True)
         return True
 
     def _on_duplicate_shortcut(self, *args):
@@ -400,7 +413,7 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_copy_shortcut(self, *args):
         focused_widget = self.get_focus()
         if isinstance(focused_widget, vte_terminal.VteTerminal):
-            focused_widget.copy_clipboard_format(Gtk.ClipboardFormat.STRING)
+            focused_widget.copy_clipboard_format(Vte.Format.TEXT)
         return True
 
     def _on_paste_shortcut(self, *args):
@@ -426,6 +439,18 @@ class MainWindow(Adw.ApplicationWindow):
         if isinstance(focused_widget, vte_terminal.VteTerminal):
             focused_widget.set_font_scale(1.0)
         return True
+
+    def _on_tab_switched(self, notebook, param):
+        page = notebook.get_selected_page()
+        if not page:
+            return
+
+        content = page.get_child()
+        if not content:
+            return
+
+        terminal = self._find_first_terminal_in_widget(content)
+        self.connections_view.select_connection_from_terminal(terminal)
 
     def _split_focused_terminal(self, orientation):
         terminal = self.get_focus()
@@ -524,7 +549,7 @@ class MainWindow(Adw.ApplicationWindow):
             paned.set_start_child(build_grid(start_items, is_vertical, total_items))
             paned.set_end_child(build_grid(end_items, is_vertical, total_items))
 
-            GLib.idle_add(lambda: paned.set_position(paned.get_allocated_width() * len(start_items) // len(items) if not is_vertical else paned.get_allocated_height() * len(start_items) // len(items)))
+            GLib.idle_add(self._set_paned_position, paned, len(start_items), len(items), is_vertical)
             return paned
 
         def do_open(cluster_id=None):
@@ -551,6 +576,18 @@ class MainWindow(Adw.ApplicationWindow):
                 self._ask_for_cluster_name(do_open)
                 return
         do_open()
+
+    def _set_paned_position(self, paned: Gtk.Paned, start_items_len: int, items_len: int, is_vertical: bool):
+        print("Setting paned position after idle")
+        if is_vertical:
+            allocated_size = paned.get_allocated_height()
+            if allocated_size > 0:
+                paned.set_position(allocated_size * start_items_len // items_len)
+        else:
+            allocated_size = paned.get_allocated_width()
+            if allocated_size > 0:
+                paned.set_position(allocated_size * start_items_len // items_len)
+        return GLib.SOURCE_REMOVE
 
     def open_connection_tab(self, conn: connection.Connection, cluster_id: Optional[str] = None):
         terminal = self.create_terminal(conn, cluster_id)
@@ -634,6 +671,28 @@ class MainWindow(Adw.ApplicationWindow):
             submenu.append("Leave Cluster", "term.leave_cluster")
 
         return submenu
+
+    def _rename_tab(self, action, param, terminal, page):
+        if not page:
+            return
+
+        dialog = Adw.MessageDialog(transient_for=self, modal=True, heading="Rename Tab")
+        entry = Adw.EntryRow(title="Tab Name", text=page.get_title(), activates_default=True)
+        dialog.set_extra_child(entry)
+
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("rename", "Rename")
+        dialog.set_response_appearance("rename", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("rename")
+
+        def on_response(d, response_id):
+            if response_id == "rename":
+                new_title = entry.get_text().strip()
+                page.custom_title = new_title if new_title else None
+                self.updatePageTitle(page)
+
+        dialog.connect("response", on_response)
+        dialog.present()
 
     def _create_new_cluster(self, terminal):
         def on_name_received(cluster_name):
@@ -794,16 +853,20 @@ class MainWindow(Adw.ApplicationWindow):
         except GLib.Error as e:
             self.show_error_dialog("Manual Script Failed", f"Failed to execute command:\n{substituted_cmd}\n\n{e.message}")
 
-    def build_paned_widget(self, orientation):
+    def build_paned_widget(self, orientation, source_content: Gtk.Widget, target_content: Gtk.Widget) -> Gtk.Paned:
         paned = Gtk.Paned(orientation=orientation, wide_handle=False)
-        def on_map(p):
-            if p.get_orientation() == Gtk.Orientation.HORIZONTAL and p.get_width() > 0:
-                p.set_position(p.get_width() // 2)
-            elif p.get_orientation() == Gtk.Orientation.VERTICAL and p.get_height() > 0:
-                p.set_position(p.get_height() // 2)
+        paned.set_start_child(source_content)
+        paned.set_end_child(target_content)
+
+        def set_paned_position(p):
+            if p.get_orientation() == Gtk.Orientation.HORIZONTAL:
+                p.set_position(p.get_allocated_width() // 2)
             else:
-                GLib.idle_add(on_map, p)
-        paned.connect_after("map", on_map)
+                p.set_position(p.get_allocated_height() // 2)
+            return GLib.SOURCE_REMOVE
+
+        paned.connect_after("map", lambda p: GLib.idle_add(set_paned_position, p))
+
         return paned
 
     def split_terminal_or_tab(self, action, param, terminal, source_page, source_page_idx, orientation, target_page, target_page_idx):
@@ -830,9 +893,7 @@ class MainWindow(Adw.ApplicationWindow):
             target_content.unparent()
             self.notebook.close_page(target_page)
 
-        paned = self.build_paned_widget(orientation=orientation)
-        paned.set_start_child(source_content)
-        paned.set_end_child(target_content)
+        paned = self.build_paned_widget(orientation, source_content, target_content)
 
         source_container.append(paned)
 
@@ -862,9 +923,7 @@ class MainWindow(Adw.ApplicationWindow):
                 target_content.unparent()
                 self.notebook.close_page(target_page)
 
-            paned = self.build_paned_widget(orientation=orientation)
-            paned.set_start_child(source_scrolled_window)
-            paned.set_end_child(target_content)
+            paned = self.build_paned_widget(orientation, source_scrolled_window, target_content)
 
             if is_start_child:
                 parent.set_start_child(paned)
@@ -962,27 +1021,36 @@ class MainWindow(Adw.ApplicationWindow):
         if not content:
             page.set_title("Empty Tab")
             page.set_indicator_icon(None)
+            page.set_needs_attention(False)
             return
 
         terminals = self._find_all_terminals_in_widget(content)
-        if not terminals:
-            page.set_title("Empty Tab")
-            page.set_indicator_icon(None)
-            return
 
-        conn_names = [t.pulse_conn.name for t in terminals if hasattr(t, 'pulse_conn')]
-        unique_names = list(set(dict.fromkeys(conn_names)))
-        page.set_title(" + ".join(unique_names))
+        custom_title = page.custom_title if hasattr(page, 'custom_title') else None
+        if custom_title:
+            page.set_title(GLib.markup_escape_text(custom_title))
+        else:
+            if terminals:
+                conn_names = [t.pulse_conn.name for t in terminals if hasattr(t, 'pulse_conn')]
+                unique_names = list(set(dict.fromkeys(conn_names)))
+                page.set_title(GLib.markup_escape_text(" + ".join(unique_names)))
+            else:
+                page.set_title("Empty Tab")
+                page.set_indicator_icon(None)
+                page.set_needs_attention(False)
 
         total_terminals = len(terminals)
         connected_terminals = sum(1 for t in terminals if t.connected)
 
         if connected_terminals == total_terminals:
-            page.set_indicator_icon(Gio.Icon.new_for_string("emblem-ok-symbolic"))
+            page.set_indicator_icon(Gio.Icon.new_for_string("emblem-mounted"))
+            page.set_needs_attention(False)
         elif connected_terminals > 0:
-            page.set_indicator_icon(Gio.Icon.new_for_string("emblem-synchronizing-symbolic"))
+            page.set_indicator_icon(Gio.Icon.new_for_string("emblem-warning"))
+            page.set_needs_attention(True)
         else:
-            page.set_indicator_icon(Gio.Icon.new_for_string("emblem-error-symbolic"))
+            page.set_indicator_icon(Gio.Icon.new_for_string("emblem-unmounted"))
+            page.set_needs_attention(True)
 
     def on_terminal_child_exited(self, terminal: vte_terminal.VteTerminal, status: int, conn: connection.Connection):
         terminal.connected = False
@@ -1002,7 +1070,7 @@ class MainWindow(Adw.ApplicationWindow):
         timestamp = GLib.DateTime.new_now_local().format("%Y-%m-%d %H:%M:%S")
 
         def wait_for_key_behavior():
-            message = f"\r\n\n--- SSH connection closed at {timestamp}.\r\n--- Press Enter to restart.\r\n--- Press Esc to close terminal.\r\n"
+            message = f"\r\n\r\n --- SSH connection closed at {timestamp}.\r\n --- Press Enter to restart.\r\n --- Press Esc to close terminal.\r\n"
             terminal.feed(message.encode('utf-8'))
 
             evk = Gtk.EventControllerKey()
@@ -1031,7 +1099,9 @@ class MainWindow(Adw.ApplicationWindow):
         elif behavior == "wait_for_key":
             wait_for_key_behavior()
 
-    def replace_terminal(self, old_terminal, new_scrolled_window):
+    def replace_terminal(self, old_terminal: vte_terminal.VteTerminal, new_scrolled_window: Gtk.ScrolledWindow):
+        page = old_terminal.get_ancestor_page()
+
         old_scrolled_window = old_terminal.get_parent()
         parent = old_scrolled_window.get_parent()
         if not parent:
@@ -1044,6 +1114,8 @@ class MainWindow(Adw.ApplicationWindow):
                 parent.set_start_child(new_scrolled_window)
             else:
                 parent.set_end_child(new_scrolled_window)
+        if page:
+            self.updatePageTitle(page)
 
     def show_error_dialog(self, title, message):
         dialog = Adw.MessageDialog(

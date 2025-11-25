@@ -229,6 +229,13 @@ class VteTerminal(Vte.Terminal):
 
         menu_model.append_section(None, Gio.Menu())
 
+        rename_action = Gio.SimpleAction.new("rename_tab", None)
+        rename_action.connect("activate", self.app_window._rename_tab, self, source_page)
+        action_group.add_action(rename_action)
+        menu_model.append("Rename Tab", "term.rename_tab")
+
+        menu_model.append_section(None, Gio.Menu())
+
         close_action = Gio.SimpleAction.new("close", None)
         close_action.connect("activate", self.app_window.close_terminal, self, source_page)
         action_group.add_action(close_action)
@@ -290,6 +297,8 @@ class VteTerminal(Vte.Terminal):
         return False
 
     def apply_theme(self):
+        self.set_audible_bell(self.app_window.app_config.audible_bell)
+
         font_desc = Pango.FontDescription.from_string(f"{self.app_window.app_config.font_family} {self.app_window.app_config.font_size}")
         self.set_font(font_desc)
 

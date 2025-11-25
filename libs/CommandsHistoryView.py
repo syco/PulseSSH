@@ -7,6 +7,7 @@ gi.require_version('Gtk', '4.0')
 
 from gi.repository import Adw
 from gi.repository import Gio
+from gi.repository import GLib
 from gi.repository import Gtk
 from gi.repository import Pango
 from typing import TYPE_CHECKING
@@ -154,7 +155,7 @@ class CommandsHistoryView():
         scrolled_window.set_child(text_view)
 
         page = self.app_window.notebook.append(scrolled_window)
-        page.set_title(f"History: {node.command[:20]}")
+        page.set_title(GLib.markup_escape_text(f"History: {node.command[:20]}"))
         page.pulse_history_uuid = node.uuid
         self.app_window.notebook.set_selected_page(page)
 

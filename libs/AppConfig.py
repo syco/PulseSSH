@@ -21,6 +21,7 @@ class AppConfig:
     scroll_on_insert: bool = True
     sidebar_on_right: bool = False
     scrollbar_visible: bool = True
+    audible_bell: bool = False
     ssh_forward_agent: bool = False
     ssh_compression: bool = False
     ssh_x11_forwarding: bool = False
