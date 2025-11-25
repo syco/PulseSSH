@@ -1026,12 +1026,12 @@ class MainWindow(Adw.ApplicationWindow):
 
         custom_title = page.custom_title if hasattr(page, 'custom_title') else None
         if custom_title:
-            page.set_title(custom_title)
+            page.set_title(GLib.markup_escape_text(custom_title))
         else:
             if terminals:
                 conn_names = [t.pulse_conn.name for t in terminals if hasattr(t, 'pulse_conn')]
                 unique_names = list(set(dict.fromkeys(conn_names)))
-                page.set_title(" + ".join(unique_names))
+                page.set_title(GLib.markup_escape_text(" + ".join(unique_names)))
             else:
                 page.set_title("Empty Tab")
                 page.set_indicator_icon(None)

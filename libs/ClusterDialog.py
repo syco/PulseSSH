@@ -7,6 +7,7 @@ gi.require_version('Gtk', '4.0')
 from gi.repository import Adw
 from gi.repository import Gdk
 from gi.repository import Gio
+from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
 from typing import Dict
@@ -133,7 +134,7 @@ class ClusterDialog(Adw.Window):
         label_text = conn.name
         if conn.folder:
             label_text = f"{conn.folder}/{conn.name}"
-        row.set_title(label_text)
+        row.set_title(GLib.markup_escape_text(label_text))
 
         check_button = Gtk.CheckButton()
         check_button.set_active(item.is_checked)
