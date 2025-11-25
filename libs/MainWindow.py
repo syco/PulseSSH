@@ -134,6 +134,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.notebook = Adw.TabView()
         self.notebook.set_vexpand(True)
         self.notebook.connect("close-page", self.on_notebook_close_page)
+        self.notebook.connect("notify::selected-page", self._on_tab_switched)
         self.connect("close-request", self.on_window_close_request)
 
         tab_bar = Adw.TabBar(autohide=False, expand_tabs=False, view=self.notebook)
@@ -436,6 +437,18 @@ class MainWindow(Adw.ApplicationWindow):
         if isinstance(focused_widget, vte_terminal.VteTerminal):
             focused_widget.set_font_scale(1.0)
         return True
+
+    def _on_tab_switched(self, notebook, param):
+        page = notebook.get_selected_page()
+        if not page:
+            return
+
+        content = page.get_child()
+        if not content:
+            return
+
+        terminal = self._find_first_terminal_in_widget(content)
+        self.connections_view.select_connection_from_terminal(terminal)
 
     def _split_focused_terminal(self, orientation):
         terminal = self.get_focus()

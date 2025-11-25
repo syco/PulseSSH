@@ -60,15 +60,15 @@ class ClustersView():
         filter_model = Gtk.FilterListModel(model=self.root_store, filter=self.filter)
         self.selection_model = Gtk.SingleSelection(model=filter_model)
 
-        list_view = Gtk.ListView(model=self.selection_model, factory=factory)
-        list_view.connect("activate", self.item_activated_callback)
+        self.list_view = Gtk.ListView(model=self.selection_model, factory=factory)
+        self.list_view.connect("activate", self.item_activated_callback)
 
         key_controller = Gtk.EventControllerKey()
         key_controller.connect("key-pressed", self.on_key_pressed)
-        list_view.add_controller(key_controller)
+        self.list_view.add_controller(key_controller)
 
         content = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
-        content.set_child(list_view)
+        content.set_child(self.list_view)
 
         bottom_bar = Adw.HeaderBar(show_title = False, show_start_title_buttons=False, show_end_title_buttons=False)
         add_btn = Gtk.Button(icon_name="list-add-symbolic")
@@ -125,6 +125,7 @@ class ClustersView():
     def select_first_item(self):
         if self.selection_model.get_model().get_n_items() > 0:
             self.selection_model.select_item(0, True)
+            self.list_view.scroll_to(0, Gtk.ListScrollFlags.FOCUS, None)
         else:
             self.selection_model.unselect_all()
         return GLib.SOURCE_REMOVE

@@ -91,15 +91,15 @@ class ConnectionsView():
         self.filter_model = Gtk.FilterListModel(model=self.tree_store, filter=self.filter)
         self.selection_model = Gtk.MultiSelection(model=self.filter_model)
 
-        list_view = Gtk.ListView(model=self.selection_model, factory=factory)
-        list_view.connect("activate", self.item_activated_callback)
+        self.list_view = Gtk.ListView(model=self.selection_model, factory=factory)
+        self.list_view.connect("activate", self.item_activated_callback)
 
         key_controller = Gtk.EventControllerKey()
         key_controller.connect("key-pressed", self.on_key_pressed)
-        list_view.add_controller(key_controller)
+        self.list_view.add_controller(key_controller)
 
         content = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
-        content.set_child(list_view)
+        content.set_child(self.list_view)
 
         bottom_bar = Adw.HeaderBar(show_title = False, show_start_title_buttons=False, show_end_title_buttons=False)
         add_btn = Gtk.Button(icon_name="list-add-symbolic")
@@ -146,7 +146,7 @@ class ConnectionsView():
     def populate_tree(self):
         self.root_store.remove_all()
 
-        def find_or_create_folder(parent_gio_list_store: Gio.ListStore, folder_name, parent_path: str):
+        def find_or_create_folder(parent_gio_list_store: Gio.ListStore, folder_name, parent_path: str) -> connection_list_item.ConnectionListItem:
             for i in range(parent_gio_list_store.get_n_items()):
                 item = parent_gio_list_store.get_item(i)
                 if not item.connection_data and item.name == folder_name:
@@ -164,18 +164,21 @@ class ConnectionsView():
             return f"{e.folder.lower()}/{e.name.lower()}"
 
         for c in sorted(self.app_window.connections.values(), key=sortFunction):
-            if c.folder:
-                path_parts = c.folder.split('/')
-                parent_path = ""
-                current_gio_list_store = self.root_store
-                for part in path_parts:
-                    if part:
-                        folder_item = find_or_create_folder(current_gio_list_store, part, parent_path)
-                        current_gio_list_store = folder_item.children_store
-                        parent_path = folder_item.path
-                current_gio_list_store.append(connection_list_item.ConnectionListItem(c.name, c))
-            elif c.uuid != "local":
-                self.root_store.append(connection_list_item.ConnectionListItem(c.name, c))
+            listItem = connection_list_item.ConnectionListItem(c.name, c)
+            if listItem:
+                if c.folder:
+                    path_parts = c.folder.split('/')
+                    parent_path = ""
+                    current_gio_list_store = self.root_store
+                    for part in path_parts:
+                        if part:
+                            folder_item = find_or_create_folder(current_gio_list_store, part, parent_path)
+                            current_gio_list_store = folder_item.children_store
+                            parent_path = folder_item.path or ""
+                    if current_gio_list_store is not None:
+                        current_gio_list_store.append(listItem)
+                else:
+                    self.root_store.append(listItem)
         self.filter.changed(Gtk.FilterChange.DIFFERENT)
 
     def filter_changed_callback(self, entry):
@@ -191,6 +194,7 @@ class ConnectionsView():
             conn_item = item.get_item()
             if conn_item.connection_data:
                 self.selection_model.select_item(x, True)
+                self.list_view.scroll_to(x, Gtk.ListScrollFlags.FOCUS, None)
                 break
         return GLib.SOURCE_REMOVE
 
@@ -417,6 +421,35 @@ class ConnectionsView():
 
         if response_id == Gtk.ResponseType.OK or response_id == Gtk.ResponseType.CANCEL:
             dialog.destroy()
+
+    def select_connection_from_terminal(self, terminal):
+        if not terminal or not hasattr(terminal, 'pulse_conn') or not terminal.pulse_conn:
+            self.selection_model.unselect_all()
+            return
+
+        conn_uuid = terminal.pulse_conn.uuid
+        if conn_uuid == "local":
+            self.selection_model.unselect_all()
+            return
+
+        def find_item_position(model, uuid_to_find):
+            for i in range(model.get_n_items()):
+                tree_row = model.get_item(i)
+                if not tree_row:
+                    continue
+                item = tree_row.get_item()
+                if item and item.connection_data and item.connection_data.uuid == uuid_to_find:
+                    return i
+            return -1
+
+        position = find_item_position(self.filter_model, conn_uuid)
+
+        if position != -1:
+            self.selection_model.unselect_all()
+            self.selection_model.select_item(position, True)
+            self.list_view.scroll_to(position, Gtk.ListScrollFlags.FOCUS, None)
+        else:
+            self.selection_model.unselect_all()
 
     def item_activated_callback(self, list_view, position):
         selection = self.selection_model.get_selection()
