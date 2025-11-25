@@ -150,8 +150,11 @@ class ClustersView():
         return False
 
     def build_menu(self, gesture, n_press, x, y, list_item):
-        if not self.selection_model.is_selected(list_item.get_position()):
-            self.selection_model.select_item(list_item.get_position(), True)
+        cur_position = list_item.get_position()
+        if not self.selection_model.is_selected(cur_position):
+            self.selection_model.unselect_all()
+            self.selection_model.select_item(cur_position, True)
+            self.list_view.scroll_to(cur_position, Gtk.ListScrollFlags.FOCUS, None)
 
         item = list_item.get_item()
         if not item:
