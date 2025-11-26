@@ -120,7 +120,6 @@ class MainWindow(Adw.ApplicationWindow):
         self.notebook = Adw.TabView()
         self.notebook.set_vexpand(True)
         self.notebook.connect("close-page", self.on_notebook_close_page)
-        self.notebook.connect("create-window", self._on_create_window)
         self.notebook.connect("notify::selected-page", self._on_tab_switched)
         self.connect("close-request", self.on_window_close_request)
 
@@ -437,16 +436,6 @@ class MainWindow(Adw.ApplicationWindow):
         if isinstance(focused_widget, vte_terminal.VteTerminal):
             focused_widget.set_font_scale(1.0)
         return True
-
-    def _on_create_window(self, tab_view):
-        app = self.get_application()
-        new_window = MainWindow(
-            app=app,
-            config_dir=self.config_dir,
-            readonly=self.readonly,
-            about_info=self.about_info
-        )
-        return new_window.notebook
 
     def _on_tab_switched(self, notebook, param):
         page = notebook.get_selected_page()
