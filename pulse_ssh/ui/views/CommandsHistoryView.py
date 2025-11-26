@@ -113,7 +113,7 @@ class CommandsHistoryView():
             new_store = Gio.ListStore(item_type=command_history_item.CommandHistoryItem)
             for history_item in conn_history:
                 new_store.append(history_item)
-            folder_item = command_history_item.CommandHistoryItem(conn.name, None, None, False, children_store=new_store)
+            folder_item = command_history_item.CommandHistoryItem(conn.name, "", "", False, new_store)
             self.root_store.append(folder_item)
 
     def clear_history_callback(self, button):

@@ -321,12 +321,12 @@ class AppConfigDialog(Adw.Window):
 
         variables = [
             ("${name}", "The name of the connection."),
+            ("${folder}", "The folder the connection belongs to."),
             ("${host}", "The hostname or IP address."),
             ("${user}", "The username for the connection."),
             ("${port}", "The SSH port number."),
             ("${identity_file}", "Path to the identity file (if any)."),
             ("${password}", "The password for the connection (if stored)."),
-            ("${folder}", "The folder the connection belongs to."),
             ("${uuid}", "The unique ID of the connection."),
             ("${proxy_port}", "The dynamic SOCKS proxy port (if enabled)."),
         ]
