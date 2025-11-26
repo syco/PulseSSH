@@ -6,6 +6,7 @@ gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
 
 from gi.repository import Adw  # type: ignore
+from gi.repository import GLib  # type: ignore
 from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
 from gi.repository import Gtk  # type: ignore
