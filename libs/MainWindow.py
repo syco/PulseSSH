@@ -27,7 +27,7 @@ import os
 import uuid
 
 class MainWindow(Adw.ApplicationWindow):
-    def __init__(self, app, config_dir: str, readonly: bool = False, about_info: Optional[Dict] = None):
+    def __init__(self, app, config_dir: str, readonly: bool = False, about_info: Dict = {}):
         super().__init__(application=app, title="PulseSSH")
 
         self.config_dir = config_dir
