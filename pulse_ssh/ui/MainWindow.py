@@ -61,10 +61,6 @@ class MainWindow(Adw.ApplicationWindow):
 
         self.split_view = Adw.NavigationSplitView()
 
-        self.window_controls = Gtk.WindowControls(side=Gtk.PackType.END)
-        self.window_controls.set_decoration_layout(":minimize,maximize,close")
-        self.window_controls.set_margin_end(6)
-
         self.top_bar = Adw.HeaderBar(show_start_title_buttons=True, show_end_title_buttons=True, decoration_layout="menu:minimize,maximize,close", title_widget=Gtk.Label(label="PulseSSH", xalign=0))
 
         self.apply_config_settings()
@@ -77,12 +73,6 @@ class MainWindow(Adw.ApplicationWindow):
         }
         stackswitcher button {
             border-radius: 0;
-        }
-        .custom-header-bar {
-            background-color: transparent;
-            border: none;
-            border-radius: 0;
-            box-shadow: none;
         }
         """)
         Gtk.StyleContext.add_provider_for_display(
@@ -97,8 +87,6 @@ class MainWindow(Adw.ApplicationWindow):
         }
         Adw.StyleManager.get_default().set_color_scheme(color_scheme_map.get(self.app_config.color_scheme, Adw.ColorScheme.DEFAULT))
         self.split_view.set_sidebar_position(Gtk.PositionType.RIGHT if self.app_config.sidebar_on_right else Gtk.PositionType.LEFT)
-        self.window_controls.set_visible(not self.app_config.sidebar_on_right)
-        self.top_bar.set_visible(self.app_config.sidebar_on_right)
 
     def _build_ui(self):
         self.panel_stack = Adw.ViewStack()
@@ -122,7 +110,6 @@ class MainWindow(Adw.ApplicationWindow):
         stack_switcher.set_stack(self.panel_stack)
 
         switcher_container = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False, title_widget=stack_switcher)
-        switcher_container.add_css_class("custom-header-bar")
 
         self.side_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.side_panel.append(switcher_container)
@@ -133,17 +120,15 @@ class MainWindow(Adw.ApplicationWindow):
         self.notebook = Adw.TabView()
         self.notebook.set_vexpand(True)
         self.notebook.connect("close-page", self.on_notebook_close_page)
+        self.notebook.connect("create-window", self._on_create_window)
         self.notebook.connect("notify::selected-page", self._on_tab_switched)
         self.connect("close-request", self.on_window_close_request)
 
         tab_bar = Adw.TabBar(autohide=False, expand_tabs=False, view=self.notebook)
 
-        tab_bar_container = Gtk.Box()
-        tab_bar_container.append(tab_bar)
-        tab_bar_container.append(self.window_controls)
-
-        content_toolbar_view = Adw.ToolbarView(content = self.notebook)
-        content_toolbar_view.add_top_bar(tab_bar_container)
+        content_toolbar_view = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        content_toolbar_view.append(tab_bar)
+        content_toolbar_view.append(self.notebook)
 
         content_page = Adw.NavigationPage.new(content_toolbar_view, "Terminals")
 
@@ -156,7 +141,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.split_view.set_sidebar_position(Gtk.PositionType.RIGHT if self.app_config.sidebar_on_right else Gtk.PositionType.LEFT)
         self.split_view.set_vexpand(True)
 
-        toolbar_view = Adw.ToolbarView(content = self.split_view)
+        toolbar_view = Adw.ToolbarView(content=self.split_view)
         toolbar_view.add_top_bar(self.top_bar)
 
         self.toast_overlay = Adw.ToastOverlay()
@@ -452,6 +437,16 @@ class MainWindow(Adw.ApplicationWindow):
         if isinstance(focused_widget, vte_terminal.VteTerminal):
             focused_widget.set_font_scale(1.0)
         return True
+
+    def _on_create_window(self, tab_view):
+        app = self.get_application()
+        new_window = MainWindow(
+            app=app,
+            config_dir=self.config_dir,
+            readonly=self.readonly,
+            about_info=self.about_info
+        )
+        return new_window.notebook
 
     def _on_tab_switched(self, notebook, param):
         page = notebook.get_selected_page()
