@@ -382,6 +382,20 @@ class ConnectionsView():
             self.populate_tree()
         dialog.destroy()
 
+    def edit_selected_entry(self):
+        selection = self.selection_model.get_selection()
+        if selection.get_size() != 1:
+            return
+
+        pos = selection.get_nth(0)
+        tree_row = self.selection_model.get_model().get_item(pos)
+        if not tree_row:
+            return
+
+        node = tree_row.get_item()
+        if node and node.connection_data:
+            self.open_edit_modal(None, None, node.connection_data)
+
     def open_edit_modal(self, action, param, conn_to_edit: connection.Connection):
         dlg = connection_dialog.ConnectionDialog(self.app_window, conn_to_edit)
         dlg.connect("response", self.edit_callback)

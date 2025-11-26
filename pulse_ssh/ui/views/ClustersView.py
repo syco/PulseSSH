@@ -224,6 +224,18 @@ class ClustersView():
             self.populate_tree()
         dialog.destroy()
 
+    def edit_selected_entry(self):
+        selected_pos = self.selection_model.get_selected()
+        if selected_pos == Gtk.INVALID_LIST_POSITION:
+            return
+
+        item = self.selection_model.get_selected_item()
+        if not item:
+            return
+
+        cluster_to_edit = item.cluster_data
+        self.open_edit_modal(None, None, cluster_to_edit)
+
     def open_edit_modal(self, action, param, cluster_to_edit: cluster.Cluster):
         dlg = cluster_dialog.ClusterDialog(self.app_window, self.app_window.connections, cluster_to_edit)
         dlg.connect("response", self.edit_callback)

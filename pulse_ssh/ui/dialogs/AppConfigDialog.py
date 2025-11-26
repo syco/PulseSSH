@@ -290,6 +290,7 @@ class AppConfigDialog(Adw.Window):
         grid = Gtk.Grid(row_spacing=6, column_spacing=12)
 
         shortcuts = [
+            ("Alt + e", "Edit currently selected connection/cluster"),
             ("Ctrl + 0", "Reset font size"),
             ("Ctrl + F", "Focus search bar in sidebar"),
             ("Ctrl + Minus", "Decrease font size"),

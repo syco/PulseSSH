@@ -328,6 +328,12 @@ class MainWindow(Adw.ApplicationWindow):
         )
         shortcut_controller.add_shortcut(paste_shortcut)
 
+        edit_shortcut = Gtk.Shortcut.new(
+            Gtk.ShortcutTrigger.parse_string("<Alt>e"),
+            Gtk.CallbackAction.new(self._on_edit_shortcut)
+        )
+        shortcut_controller.add_shortcut(edit_shortcut)
+
     def _create_fullscreen_controller(self):
         controller = Gtk.ShortcutController()
         controller.set_scope(Gtk.ShortcutScope.MANAGED)
@@ -379,6 +385,14 @@ class MainWindow(Adw.ApplicationWindow):
         elif self.panel_stack.get_visible_child_name() == "clusters":
             self.clusters_view.filter_entry.grab_focus()
             self.clusters_view.filter_header_bar.set_visible(True)
+        return True
+
+    def _on_edit_shortcut(self, *args):
+        active_view = self.panel_stack.get_visible_child_name()
+        if active_view == "connections":
+            self.connections_view.edit_selected_entry()
+        elif active_view == "clusters":
+            self.clusters_view.edit_selected_entry()
         return True
 
     def _on_duplicate_shortcut(self, *args):
