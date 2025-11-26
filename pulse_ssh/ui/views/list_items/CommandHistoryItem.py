@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 from datetime import datetime
-from gi.repository import Gio  # type: ignore
 from gi.repository import GObject  # type: ignore
+from gi.repository import Gio  # type: ignore
 from typing import Optional
 import uuid
 

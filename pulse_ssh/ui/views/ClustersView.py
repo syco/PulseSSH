@@ -10,14 +10,14 @@ from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
 from gi.repository import Gtk  # type: ignore
 from typing import TYPE_CHECKING
-import libs.AppConfigDialog as app_config_dialog
-import libs.Cluster as cluster
-import libs.ClusterDialog as cluster_dialog
-import libs.ClusterListItem as cluster_list_item
-import libs.Utils as utils
+import pulse_ssh.Utils as utils
+import pulse_ssh.data.Cluster as cluster
+import pulse_ssh.ui.dialogs.AppConfigDialog as app_config_dialog
+import pulse_ssh.ui.dialogs.ClusterDialog as cluster_dialog
+import pulse_ssh.ui.views.list_items.ClusterListItem as cluster_list_item
 
 if TYPE_CHECKING:
-    from libs.MainWindow import MainWindow
+    from pulse_ssh.ui.MainWindow import MainWindow
 class ClustersView():
     def __init__(self, app_window: "MainWindow"):
         super().__init__()

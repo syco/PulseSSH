@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import curses
-import libs.Utils as utils
+import pulse_ssh.Utils as utils
 import signal
 import subprocess
 import sys

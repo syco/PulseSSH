@@ -5,15 +5,15 @@ gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 
 from gi.repository import Adw  # type: ignore
+from gi.repository import GObject  # type: ignore
 from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
-from gi.repository import GObject  # type: ignore
 from gi.repository import Gtk  # type: ignore
 from gi.repository import Pango  # type: ignore
-import libs.AppConfig as app_config
-import libs.StringObject as string_object
-import libs.Utils as utils
 import os
+import pulse_ssh.Utils as utils
+import pulse_ssh.data.AppConfig as app_config
+import pulse_ssh.ui.views.list_items.StringObject as string_object
 
 SHELL_PROGRAMS = [
     "bash",
@@ -345,8 +345,7 @@ class AppConfigDialog(Adw.Window):
         page_box.set_valign(Gtk.Align.CENTER)
         page_box.set_halign(Gtk.Align.CENTER)
 
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        icon_path = os.path.join(project_root, 'res', 'icons', 'hicolor', '512x512', 'apps', 'pulse_ssh.png')
+        icon_path = os.path.join(utils.project_root, 'res', 'icons', 'hicolor', '512x512', 'apps', 'pulse_ssh.png')
 
         if os.path.exists(icon_path):
             icon = Gtk.Image.new_from_file(icon_path)

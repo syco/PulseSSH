@@ -5,11 +5,11 @@ from dataclasses import fields
 from typing import Dict
 from typing import Optional
 import json
-import libs.AppConfig as app_config
-import libs.CacheConfig as cache_config
-import libs.Cluster as cluster
-import libs.Connection as connection
 import os
+import pulse_ssh.data.AppConfig as app_config
+import pulse_ssh.data.CacheConfig as cache_config
+import pulse_ssh.data.Cluster as cluster
+import pulse_ssh.data.Connection as connection
 import shlex
 import socket
 import uuid
@@ -20,10 +20,11 @@ local_connection = connection.Connection(
     type="local"
 )
 
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 def load_themes() -> Dict:
     themes = {}
     seen_colors = {}
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     themes_path = os.path.join(project_root, 'res', 'themes.json')
 
     if os.path.exists(themes_path):

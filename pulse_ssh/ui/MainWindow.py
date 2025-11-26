@@ -7,23 +7,23 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Vte', '3.91')
 
 from gi.repository import Adw  # type: ignore
+from gi.repository import GLib  # type: ignore
 from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
-from gi.repository import GLib  # type: ignore
 from gi.repository import Gtk  # type: ignore
 from gi.repository import Vte  # type: ignore
 from typing import Dict
 from typing import List
 from typing import Optional
-import libs.ClustersView as clusters_view
-import libs.CommandHistoryItem as command_history_item
-import libs.CommandsHistoryView as commands_history_view
-import libs.Connection as connection
-import libs.ConnectionsView as connections_view
-import libs.Utils as utils
-import libs.VteTerminal as vte_terminal
 import math
 import os
+import pulse_ssh.Utils as utils
+import pulse_ssh.data.Connection as connection
+import pulse_ssh.ui.VteTerminal as vte_terminal
+import pulse_ssh.ui.views.ClustersView as clusters_view
+import pulse_ssh.ui.views.CommandsHistoryView as commands_history_view
+import pulse_ssh.ui.views.ConnectionsView as connections_view
+import pulse_ssh.ui.views.list_items.CommandHistoryItem as command_history_item
 import uuid
 
 class MainWindow(Adw.ApplicationWindow):
@@ -40,8 +40,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.app_config, self.connections, self.clusters = utils.load_app_config(self.config_dir)
         self.cache_config = utils.load_cache_config(self.config_dir)
 
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        icon_dir = os.path.join(project_root, 'res', 'icons', 'hicolor', '512x512', 'apps')
+        icon_dir = os.path.join(utils.project_root, 'res', 'icons', 'hicolor', '512x512', 'apps')
         icon_name = "pulse_ssh"
 
         icon_path = os.path.join(icon_dir, f"{icon_name}.png")
@@ -50,7 +49,7 @@ class MainWindow(Adw.ApplicationWindow):
             display = Gdk.Display.get_default()
             icon_theme = Gtk.IconTheme.get_for_display(display)
 
-            icon_theme.add_search_path(os.path.join(project_root, 'res', 'icons'))
+            icon_theme.add_search_path(os.path.join(utils.project_root, 'res', 'icons'))
 
             self.set_icon_name(icon_name)
         else:
