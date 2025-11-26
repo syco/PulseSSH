@@ -2,8 +2,8 @@
 
 import gi
 
-from gi.repository import Gio
-from gi.repository import GObject
+from gi.repository import Gio  # type: ignore
+from gi.repository import GObject  # type: ignore
 from typing import Optional
 
 class ConnectionListItem(GObject.Object):

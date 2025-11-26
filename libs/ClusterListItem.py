@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from gi.repository import GObject
+from gi.repository import GObject  # type: ignore
 
 class ClusterListItem(GObject.Object):
     def __init__(self, cluster_data):

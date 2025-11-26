@@ -54,7 +54,7 @@ def load_themes() -> Dict:
 
     return themes
 
-def load_app_config(config_dir: str) -> (app_config.AppConfig, Dict[str, connection.Connection], Dict[str, cluster.Cluster]):
+def load_app_config(config_dir: str) -> tuple[app_config.AppConfig, Dict[str, connection.Connection], Dict[str, cluster.Cluster]]:
     if config_dir is None:
         config_dir = os.path.expanduser("~/.config/pulse_ssh")
 
@@ -156,7 +156,7 @@ def substitute_variables(command: str, conn: connection.Connection, proxy_port: 
             command = command.replace(f'${{{key}}}', str(value))
     return command
 
-def build_ssh_command(app_config: app_config.AppConfig, connection: connection.Connection) -> (str, list, list, Optional[int]):
+def build_ssh_command(app_config: app_config.AppConfig, connection: connection.Connection) -> tuple[str, list, list, Optional[int]]:
     ssh_base_cmd = app_config.ssh_path
     if connection.use_sudo:
         ssh_base_cmd = f'{app_config.sudo_path} {ssh_base_cmd}'
@@ -226,7 +226,7 @@ def build_ssh_command(app_config: app_config.AppConfig, connection: connection.C
 
     return final_cmd, all_remote_scripts, remote_script_paths, proxy_port
 
-def build_sftp_command(app_config: app_config.AppConfig, connection: connection.Connection) -> (str):
+def build_sftp_command(app_config: app_config.AppConfig, connection: connection.Connection) -> str:
     ssh_base_cmd = app_config.sftp_path
     if connection.use_sudo:
         ssh_base_cmd = f'{app_config.sudo_path} {ssh_base_cmd}'

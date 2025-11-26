@@ -29,8 +29,8 @@ def run_gtk_app(args):
         import gi
         gi.require_version('Adw', '1')
         gi.require_version('Gdk', '4.0')
-        from gi.repository import Adw
-        from gi.repository import GLib
+        from gi.repository import Adw  # type: ignore
+        from gi.repository import GLib  # type: ignore
         import libs.MainWindow as pulse_ssh
         import signal
 

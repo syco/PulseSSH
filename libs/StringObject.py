@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from gi.repository import GObject
+from gi.repository import GObject  # type: ignore
 
 class StringObject(GObject.Object):
     __gtype_name__ = 'StringObject'

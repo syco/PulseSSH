@@ -4,12 +4,12 @@ import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 
-from gi.repository import Adw
-from gi.repository import Gdk
-from gi.repository import Gio
-from gi.repository import GObject
-from gi.repository import Gtk
-from gi.repository import Pango
+from gi.repository import Adw  # type: ignore
+from gi.repository import Gdk  # type: ignore
+from gi.repository import Gio  # type: ignore
+from gi.repository import GObject  # type: ignore
+from gi.repository import Gtk  # type: ignore
+from gi.repository import Pango  # type: ignore
 import libs.AppConfig as app_config
 import libs.StringObject as string_object
 import libs.Utils as utils
