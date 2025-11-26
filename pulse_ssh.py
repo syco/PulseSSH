@@ -29,9 +29,9 @@ def run_gtk_app(args):
         import gi
         gi.require_version('Adw', '1')
         gi.require_version('Gdk', '4.0')
-        from gi.repository import Adw
-        from gi.repository import GLib
-        import libs.MainWindow as pulse_ssh
+        from gi.repository import Adw  # type: ignore
+        from gi.repository import GLib  # type: ignore
+        import pulse_ssh.ui.MainWindow as main_window
         import signal
 
         class PulseSSHApp(Adw.Application):
@@ -67,7 +67,7 @@ def run_gtk_app(args):
                 return -1
 
             def on_activate(self, app):
-                self.win = pulse_ssh.MainWindow(
+                self.win = main_window.MainWindow(
                     self, config_dir=self.config_dir, readonly=self.readonly, about_info=about_info
                 )
                 self.win.present()
@@ -81,8 +81,8 @@ def run_gtk_app(args):
         run_curses_app(args)
 
 def run_curses_app(args):
-    import libs.CursesWindow as curses_app
-    curses_app.CursesWindow(config_dir=args.config_dir).run()
+    import pulse_ssh.tui.CursesWindow as curses_window
+    curses_window.CursesWindow(config_dir=args.config_dir).run()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

@@ -4,15 +4,15 @@ import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 
-from gi.repository import Adw
-from gi.repository import Gdk
-from gi.repository import Gio
-from gi.repository import GLib
-from gi.repository import GObject
-from gi.repository import Gtk
+from gi.repository import Adw  # type: ignore
+from gi.repository import GLib  # type: ignore
+from gi.repository import GObject  # type: ignore
+from gi.repository import Gdk  # type: ignore
+from gi.repository import Gio  # type: ignore
+from gi.repository import Gtk  # type: ignore
 from typing import Optional
-import libs.Connection as connection
 import os
+import pulse_ssh.data.Connection as connection
 
 class ConnectionDialog(Adw.Window):
     __gsignals__ = {
@@ -72,11 +72,12 @@ class ConnectionDialog(Adw.Window):
         main_box.append(self.stack)
 
         page = Adw.PreferencesPage()
-        group = Adw.PreferencesGroup(title="Connection Details")
-        page.add(group)
+
+        general_group = Adw.PreferencesGroup(title="General")
+        page.add(general_group)
 
         self.name = Adw.EntryRow(title="Name", text=self.conn.name if self.conn else "")
-        group.add(self.name)
+        general_group.add(self.name)
 
         self.type_dropdown = Adw.ComboRow(title="Type", model=Gtk.StringList.new(["ssh", "sftp"]))
         if self.conn and self.conn.type == "ssh":
@@ -85,20 +86,26 @@ class ConnectionDialog(Adw.Window):
             self.type_dropdown.set_selected(1)
         else:
             self.type_dropdown.set_selected(0)
-        group.add(self.type_dropdown)
+        general_group.add(self.type_dropdown)
+
+        self.folder = Adw.EntryRow(title="Folder", text=self.conn.folder if self.conn else "")
+        general_group.add(self.folder)
+
+        details_group = Adw.PreferencesGroup(title="Connection Details")
+        page.add(details_group)
 
         self.host = Adw.EntryRow(title="Host", text=self.conn.host if self.conn else "")
-        group.add(self.host)
+        details_group.add(self.host)
 
         port_adjustment = Gtk.Adjustment(value=self.conn.port if self.conn else 22, lower=1, upper=65535, step_increment=1)
         self.port = Adw.SpinRow(title="Port", adjustment=port_adjustment)
-        group.add(self.port)
+        details_group.add(self.port)
 
         self.user = Adw.EntryRow(title="User", text=self.conn.user if self.conn else "")
-        group.add(self.user)
+        details_group.add(self.user)
 
         self.password = Adw.PasswordEntryRow(title="Password", text=self.conn.password if self.conn and self.conn.password else "")
-        group.add(self.password)
+        details_group.add(self.password)
 
         self.identity_file = Gtk.Entry(text=self.conn.identity_file if self.conn else "", hexpand=True)
         browse_button = Gtk.Button(label="Browse…")
@@ -106,13 +113,10 @@ class ConnectionDialog(Adw.Window):
         identity_row = Adw.ActionRow(title="Identity File")
         identity_row.add_suffix(self.identity_file)
         identity_row.add_suffix(browse_button)
-        group.add(identity_row)
+        details_group.add(identity_row)
 
         self.key_passphrase = Adw.PasswordEntryRow(title="Key Passphrase", text=self.conn.key_passphrase if self.conn and self.conn.key_passphrase else "")
-        group.add(self.key_passphrase)
-
-        self.folder = Adw.EntryRow(title="Folder", text=self.conn.folder if self.conn else "")
-        group.add(self.folder)
+        details_group.add(self.key_passphrase)
 
         behavior_group = Adw.PreferencesGroup(title="Behavior")
         page.add(behavior_group)
@@ -130,6 +134,11 @@ class ConnectionDialog(Adw.Window):
             active=self.conn.use_sshpass if self.conn else False
         )
         behavior_group.add(self.use_sshpass)
+        self.use_sshpass.connect("notify::active", self._on_use_sshpass_toggled)
+
+        is_sshpass_active = self.use_sshpass.get_active()
+        self.password.set_sensitive(is_sshpass_active)
+        self.key_passphrase.set_sensitive(is_sshpass_active)
 
         self.stack.add_titled(page, "connection", "Connection")
 
@@ -148,6 +157,11 @@ class ConnectionDialog(Adw.Window):
         self.stack.add_titled(self.post_manual_local_list, "post_manual_local", "Manual Scripts")
 
         return main_box
+
+    def _on_use_sshpass_toggled(self, switch, _):
+        is_active = switch.get_active()
+        self.password.set_sensitive(is_active)
+        self.key_passphrase.set_sensitive(is_active)
 
     def _create_script_list_page(self, commands):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
@@ -372,13 +386,13 @@ class ConnectionDialog(Adw.Window):
         new_conn = connection.Connection(
             name=self.name.get_text(),
             type=self.type_dropdown.get_selected_item().get_string(),
+            folder=self.folder.get_text().strip('/') or "",
             host=self.host.get_text(),
             port=int(self.port.get_value()),
             user=self.user.get_text(),
-            password=self.password.get_text() or None,
+            password=self.password.get_text() or None if self.use_sshpass.get_active() else None,
             identity_file=self.identity_file.get_text() or None,
-            key_passphrase=self.key_passphrase.get_text() or None,
-            folder=self.folder.get_text().strip('/') or None,
+            key_passphrase=self.key_passphrase.get_text() or None if self.use_sshpass.get_active() else None,
             pre_local_cmds=get_scripts_from_list(self.pre_local_list),
             post_local_cmds=get_scripts_from_list(self.post_local_list),
             post_remote_cmds=get_scripts_from_list(self.post_remote_list),

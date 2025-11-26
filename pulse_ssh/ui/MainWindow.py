@@ -6,28 +6,28 @@ gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
 gi.require_version('Vte', '3.91')
 
-from gi.repository import Adw
-from gi.repository import Gdk
-from gi.repository import Gio
-from gi.repository import GLib
-from gi.repository import Gtk
-from gi.repository import Vte
+from gi.repository import Adw  # type: ignore
+from gi.repository import GLib  # type: ignore
+from gi.repository import Gdk  # type: ignore
+from gi.repository import Gio  # type: ignore
+from gi.repository import Gtk  # type: ignore
+from gi.repository import Vte  # type: ignore
 from typing import Dict
 from typing import List
 from typing import Optional
-import libs.ClustersView as clusters_view
-import libs.CommandHistoryItem as command_history_item
-import libs.CommandsHistoryView as commands_history_view
-import libs.Connection as connection
-import libs.ConnectionsView as connections_view
-import libs.Utils as utils
-import libs.VteTerminal as vte_terminal
 import math
 import os
+import pulse_ssh.Utils as utils
+import pulse_ssh.data.Connection as connection
+import pulse_ssh.ui.VteTerminal as vte_terminal
+import pulse_ssh.ui.views.ClustersView as clusters_view
+import pulse_ssh.ui.views.CommandsHistoryView as commands_history_view
+import pulse_ssh.ui.views.ConnectionsView as connections_view
+import pulse_ssh.ui.views.list_items.CommandHistoryItem as command_history_item
 import uuid
 
 class MainWindow(Adw.ApplicationWindow):
-    def __init__(self, app, config_dir: str, readonly: bool = False, about_info: Optional[Dict] = None):
+    def __init__(self, app, config_dir: str, readonly: bool = False, about_info: Dict = {}):
         super().__init__(application=app, title="PulseSSH")
 
         self.config_dir = config_dir
@@ -40,8 +40,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.app_config, self.connections, self.clusters = utils.load_app_config(self.config_dir)
         self.cache_config = utils.load_cache_config(self.config_dir)
 
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        icon_dir = os.path.join(project_root, 'res', 'icons', 'hicolor', '512x512', 'apps')
+        icon_dir = os.path.join(utils.project_root, 'res', 'icons', 'hicolor', '512x512', 'apps')
         icon_name = "pulse_ssh"
 
         icon_path = os.path.join(icon_dir, f"{icon_name}.png")
@@ -50,7 +49,7 @@ class MainWindow(Adw.ApplicationWindow):
             display = Gdk.Display.get_default()
             icon_theme = Gtk.IconTheme.get_for_display(display)
 
-            icon_theme.add_search_path(os.path.join(project_root, 'res', 'icons'))
+            icon_theme.add_search_path(os.path.join(utils.project_root, 'res', 'icons'))
 
             self.set_icon_name(icon_name)
         else:
@@ -329,6 +328,12 @@ class MainWindow(Adw.ApplicationWindow):
         )
         shortcut_controller.add_shortcut(paste_shortcut)
 
+        edit_shortcut = Gtk.Shortcut.new(
+            Gtk.ShortcutTrigger.parse_string("<Alt>e"),
+            Gtk.CallbackAction.new(self._on_edit_shortcut)
+        )
+        shortcut_controller.add_shortcut(edit_shortcut)
+
     def _create_fullscreen_controller(self):
         controller = Gtk.ShortcutController()
         controller.set_scope(Gtk.ShortcutScope.MANAGED)
@@ -380,6 +385,14 @@ class MainWindow(Adw.ApplicationWindow):
         elif self.panel_stack.get_visible_child_name() == "clusters":
             self.clusters_view.filter_entry.grab_focus()
             self.clusters_view.filter_header_bar.set_visible(True)
+        return True
+
+    def _on_edit_shortcut(self, *args):
+        active_view = self.panel_stack.get_visible_child_name()
+        if active_view == "connections":
+            self.connections_view.edit_selected_entry()
+        elif active_view == "clusters":
+            self.clusters_view.edit_selected_entry()
         return True
 
     def _on_duplicate_shortcut(self, *args):

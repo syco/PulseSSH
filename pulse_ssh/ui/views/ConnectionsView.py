@@ -5,21 +5,21 @@ gi.require_version('Adw', '1')
 gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
 
-from gi.repository import Adw
-from gi.repository import Gdk
-from gi.repository import Gio
-from gi.repository import GLib
-from gi.repository import GObject
-from gi.repository import Gtk
+from gi.repository import Adw  # type: ignore
+from gi.repository import GLib  # type: ignore
+from gi.repository import GObject  # type: ignore
+from gi.repository import Gdk  # type: ignore
+from gi.repository import Gio  # type: ignore
+from gi.repository import Gtk  # type: ignore
 from typing import TYPE_CHECKING
-import libs.AppConfigDialog as app_config_dialog
-import libs.Connection as connection
-import libs.ConnectionDialog as connection_dialog
-import libs.ConnectionListItem as connection_list_item
-import libs.Utils as utils
+import pulse_ssh.Utils as utils
+import pulse_ssh.data.Connection as connection
+import pulse_ssh.ui.dialogs.AppConfigDialog as app_config_dialog
+import pulse_ssh.ui.dialogs.ConnectionDialog as connection_dialog
+import pulse_ssh.ui.views.list_items.ConnectionListItem as connection_list_item
 
 if TYPE_CHECKING:
-    from libs.MainWindow import MainWindow
+    from pulse_ssh.ui.MainWindow import MainWindow
 class ConnectionsView():
     def __init__(self, app_window: "MainWindow"):
         super().__init__()
@@ -381,6 +381,20 @@ class ConnectionsView():
             utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
             self.populate_tree()
         dialog.destroy()
+
+    def edit_selected_entry(self):
+        selection = self.selection_model.get_selection()
+        if selection.get_size() != 1:
+            return
+
+        pos = selection.get_nth(0)
+        tree_row = self.selection_model.get_model().get_item(pos)
+        if not tree_row:
+            return
+
+        node = tree_row.get_item()
+        if node and node.connection_data:
+            self.open_edit_modal(None, None, node.connection_data)
 
     def open_edit_modal(self, action, param, conn_to_edit: connection.Connection):
         dlg = connection_dialog.ConnectionDialog(self.app_window, conn_to_edit)

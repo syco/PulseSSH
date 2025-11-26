@@ -5,18 +5,18 @@ gi.require_version('Adw', '1')
 gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
 
-from gi.repository import Adw
-from gi.repository import Gio
-from gi.repository import GLib
-from gi.repository import Gtk
-from gi.repository import Pango
+from gi.repository import Adw  # type: ignore
+from gi.repository import GLib  # type: ignore
+from gi.repository import Gio  # type: ignore
+from gi.repository import Gtk  # type: ignore
+from gi.repository import Pango  # type: ignore
 from typing import TYPE_CHECKING
-import libs.AppConfigDialog as app_config_dialog
-import libs.CommandHistoryItem as command_history_item
-import libs.Utils as utils
+import pulse_ssh.Utils as utils
+import pulse_ssh.ui.dialogs.AppConfigDialog as app_config_dialog
+import pulse_ssh.ui.views.list_items.CommandHistoryItem as command_history_item
 
 if TYPE_CHECKING:
-    from libs.MainWindow import MainWindow
+    from pulse_ssh.ui.MainWindow import MainWindow
 class CommandsHistoryView():
     def __init__(self, app_window: "MainWindow"):
         super().__init__()
@@ -113,7 +113,7 @@ class CommandsHistoryView():
             new_store = Gio.ListStore(item_type=command_history_item.CommandHistoryItem)
             for history_item in conn_history:
                 new_store.append(history_item)
-            folder_item = command_history_item.CommandHistoryItem(conn.name, None, None, False, children_store=new_store)
+            folder_item = command_history_item.CommandHistoryItem(conn.name, "", "", False, new_store)
             self.root_store.append(folder_item)
 
     def clear_history_callback(self, button):

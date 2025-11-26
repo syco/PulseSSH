@@ -13,13 +13,13 @@ import uuid
 class Connection:
     name: str
     type: str = "ssh"
+    folder: str = ""
     host: str = ""
     port: int = 22
     user: str = ""
     password: Optional[str] = None
     identity_file: Optional[str] = None
     key_passphrase: Optional[str] = None
-    folder: Optional[str] = None
     pre_local_cmds: List[str] = field(default_factory=list)
     post_local_cmds: List[str] = field(default_factory=list)
     post_remote_cmds: List[str] = field(default_factory=list)

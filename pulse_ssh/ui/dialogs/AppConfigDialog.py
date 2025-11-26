@@ -4,16 +4,16 @@ import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 
-from gi.repository import Adw
-from gi.repository import Gdk
-from gi.repository import Gio
-from gi.repository import GObject
-from gi.repository import Gtk
-from gi.repository import Pango
-import libs.AppConfig as app_config
-import libs.StringObject as string_object
-import libs.Utils as utils
+from gi.repository import Adw  # type: ignore
+from gi.repository import GObject  # type: ignore
+from gi.repository import Gdk  # type: ignore
+from gi.repository import Gio  # type: ignore
+from gi.repository import Gtk  # type: ignore
+from gi.repository import Pango  # type: ignore
 import os
+import pulse_ssh.Utils as utils
+import pulse_ssh.data.AppConfig as app_config
+import pulse_ssh.ui.views.list_items.StringObject as string_object
 
 SHELL_PROGRAMS = [
     "bash",
@@ -290,6 +290,7 @@ class AppConfigDialog(Adw.Window):
         grid = Gtk.Grid(row_spacing=6, column_spacing=12)
 
         shortcuts = [
+            ("Alt + e", "Edit currently selected connection/cluster"),
             ("Ctrl + 0", "Reset font size"),
             ("Ctrl + F", "Focus search bar in sidebar"),
             ("Ctrl + Minus", "Decrease font size"),
@@ -321,12 +322,12 @@ class AppConfigDialog(Adw.Window):
 
         variables = [
             ("${name}", "The name of the connection."),
+            ("${folder}", "The folder the connection belongs to."),
             ("${host}", "The hostname or IP address."),
             ("${user}", "The username for the connection."),
             ("${port}", "The SSH port number."),
             ("${identity_file}", "Path to the identity file (if any)."),
             ("${password}", "The password for the connection (if stored)."),
-            ("${folder}", "The folder the connection belongs to."),
             ("${uuid}", "The unique ID of the connection."),
             ("${proxy_port}", "The dynamic SOCKS proxy port (if enabled)."),
         ]
@@ -345,8 +346,7 @@ class AppConfigDialog(Adw.Window):
         page_box.set_valign(Gtk.Align.CENTER)
         page_box.set_halign(Gtk.Align.CENTER)
 
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        icon_path = os.path.join(project_root, 'res', 'icons', 'hicolor', '512x512', 'apps', 'pulse_ssh.png')
+        icon_path = os.path.join(utils.project_root, 'res', 'icons', 'hicolor', '512x512', 'apps', 'pulse_ssh.png')
 
         if os.path.exists(icon_path):
             icon = Gtk.Image.new_from_file(icon_path)

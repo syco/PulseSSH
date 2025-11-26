@@ -5,19 +5,20 @@ gi.require_version('Adw', '1')
 gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
 
-from gi.repository import Adw
-from gi.repository import Gdk
-from gi.repository import Gio
-from gi.repository import Gtk
+from gi.repository import Adw  # type: ignore
+from gi.repository import GLib  # type: ignore
+from gi.repository import Gdk  # type: ignore
+from gi.repository import Gio  # type: ignore
+from gi.repository import Gtk  # type: ignore
 from typing import TYPE_CHECKING
-import libs.AppConfigDialog as app_config_dialog
-import libs.Cluster as cluster
-import libs.ClusterDialog as cluster_dialog
-import libs.ClusterListItem as cluster_list_item
-import libs.Utils as utils
+import pulse_ssh.Utils as utils
+import pulse_ssh.data.Cluster as cluster
+import pulse_ssh.ui.dialogs.AppConfigDialog as app_config_dialog
+import pulse_ssh.ui.dialogs.ClusterDialog as cluster_dialog
+import pulse_ssh.ui.views.list_items.ClusterListItem as cluster_list_item
 
 if TYPE_CHECKING:
-    from libs.MainWindow import MainWindow
+    from pulse_ssh.ui.MainWindow import MainWindow
 class ClustersView():
     def __init__(self, app_window: "MainWindow"):
         super().__init__()
@@ -223,6 +224,18 @@ class ClustersView():
             utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
             self.populate_tree()
         dialog.destroy()
+
+    def edit_selected_entry(self):
+        selected_pos = self.selection_model.get_selected()
+        if selected_pos == Gtk.INVALID_LIST_POSITION:
+            return
+
+        item = self.selection_model.get_selected_item()
+        if not item:
+            return
+
+        cluster_to_edit = item.cluster_data
+        self.open_edit_modal(None, None, cluster_to_edit)
 
     def open_edit_modal(self, action, param, cluster_to_edit: cluster.Cluster):
         dlg = cluster_dialog.ClusterDialog(self.app_window, self.app_window.connections, cluster_to_edit)
