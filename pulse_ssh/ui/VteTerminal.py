@@ -107,8 +107,8 @@ class VteTerminal(Vte.Terminal):
         handler_id = [None]
 
         def on_prompt_detected(terminal):
-            text = terminal.get_text_format(Vte.Format.TEXT)
-            if text and text.rstrip().endswith(('$', '#', '>', '%')):
+            last_line = terminal.get_last_line()
+            if last_line and last_line.rstrip().endswith(('$', '#', '>', '%')):
                 if handler_id[0]:
                     terminal.disconnect(handler_id[0])
                     handler_id[0] = None
@@ -345,3 +345,16 @@ class VteTerminal(Vte.Terminal):
                 return self.app_window.notebook.get_page(parent)
             widget = parent
         return None
+
+    def get_last_line(self) -> str:
+        full_text = self.get_text_format(Vte.Format.TEXT)
+        if not full_text:
+            return ""
+
+        if not full_text.endswith('\n'):
+            return ""
+
+        lines = full_text.rstrip('\n').split('\n')
+        line = lines[-1] if lines else ""
+        print(line)
+        return line
