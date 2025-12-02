@@ -92,7 +92,6 @@ class VteTerminal(Vte.Terminal):
 
         self.connect_time = GLib.get_monotonic_time()
         self.cluster_key_controller = Gtk.EventControllerKey()
-        self.cluster_key_controller.connect("key-pressed", self.key_pressed_callback)
 
         if cluster_id:
             self.app_window._join_cluster(self, cluster_id)
@@ -231,6 +230,13 @@ class VteTerminal(Vte.Terminal):
         rect.x, rect.y, rect.width, rect.height = int(x), int(y), 1, 1
         popover.set_pointing_to(rect)
         popover.popup()
+
+    def paste_clipboard(self):
+        if self.pulse_cluster_id and self.pulse_cluster_id in self.app_window.active_clusters:
+            for terminal in self.app_window.active_clusters[self.pulse_cluster_id]:
+                super(VteTerminal, terminal).paste_clipboard()
+        else:
+            super().paste_clipboard()
 
     def open_sftp_tab(self, action, param):
         clone = self.pulse_conn.get_cloned_connection()

@@ -575,7 +575,6 @@ class MainWindow(Adw.ApplicationWindow):
         do_open()
 
     def _set_paned_position(self, paned: Gtk.Paned, start_items_len: int, items_len: int, is_vertical: bool):
-        print("Setting paned position after idle")
         if is_vertical:
             allocated_size = paned.get_allocated_height()
             if allocated_size > 0:
@@ -731,6 +730,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         self.active_clusters[cluster_id].append(terminal)
         terminal.pulse_cluster_id = cluster_id
+        terminal.cluster_key_controller.connect("key-pressed", terminal.key_pressed_callback)
         terminal.add_controller(terminal.cluster_key_controller)
 
     def _leave_cluster(self, terminal):
@@ -740,6 +740,7 @@ class MainWindow(Adw.ApplicationWindow):
         cluster_id = terminal.pulse_cluster_id
         if cluster_id in self.active_clusters and terminal in self.active_clusters[cluster_id]:
             self.active_clusters[cluster_id].remove(terminal)
+            terminal.cluster_key_controller.disconnect_by_func(terminal.key_pressed_callback)
             terminal.remove_controller(terminal.cluster_key_controller)
             if not self.active_clusters[cluster_id]:
                 del self.active_clusters[cluster_id]
