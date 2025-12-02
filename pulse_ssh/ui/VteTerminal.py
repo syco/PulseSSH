@@ -85,6 +85,11 @@ class VteTerminal(Vte.Terminal):
         click_gesture.connect("pressed", self.build_menu)
         self.add_controller(click_gesture)
 
+        middle_click_gesture = Gtk.GestureClick()
+        middle_click_gesture.set_button(Gdk.BUTTON_MIDDLE)
+        middle_click_gesture.connect("pressed", self.on_middle_click_paste)
+        self.add_controller(middle_click_gesture)
+
         self.connect("child-exited", self.app_window.on_terminal_child_exited, connection)
 
         self.pulse_conn = connection
@@ -237,6 +242,17 @@ class VteTerminal(Vte.Terminal):
                 super(VteTerminal, terminal).paste_clipboard()
         else:
             super().paste_clipboard()
+
+    def on_middle_click_paste(self, gesture, n_press, x, y):
+        self.paste_primary()
+
+    def paste_primary(self):
+        if self.pulse_cluster_id and self.pulse_cluster_id in self.app_window.active_clusters:
+            for terminal in self.app_window.active_clusters[self.pulse_cluster_id]:
+                if terminal != self:
+                    super(VteTerminal, terminal).paste_primary()
+        else:
+            super().paste_primary()
 
     def open_sftp_tab(self, action, param):
         clone = self.pulse_conn.get_cloned_connection()
