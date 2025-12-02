@@ -422,19 +422,36 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_zoom_in_shortcut(self, *args):
         focused_widget = self.get_focus()
         if isinstance(focused_widget, vte_terminal.VteTerminal):
-            focused_widget.set_font_scale(focused_widget.get_font_scale() * 1.1)
+            newscale = focused_widget.get_font_scale() + 0.1
+            cluster_id = focused_widget.pulse_cluster_id
+            if cluster_id and cluster_id in self.active_clusters:
+                for terminal in self.active_clusters[cluster_id]:
+                    terminal.set_font_scale(newscale)
+            else:
+                focused_widget.set_font_scale(newscale)
         return True
 
     def _on_zoom_out_shortcut(self, *args):
         focused_widget = self.get_focus()
         if isinstance(focused_widget, vte_terminal.VteTerminal):
-            focused_widget.set_font_scale(focused_widget.get_font_scale() / 1.1)
+            newscale = focused_widget.get_font_scale() - 0.1
+            cluster_id = focused_widget.pulse_cluster_id
+            if cluster_id and cluster_id in self.active_clusters:
+                for terminal in self.active_clusters[cluster_id]:
+                    terminal.set_font_scale(newscale)
+            else:
+                focused_widget.set_font_scale(newscale)
         return True
 
     def _on_zoom_reset_shortcut(self, *args):
         focused_widget = self.get_focus()
         if isinstance(focused_widget, vte_terminal.VteTerminal):
-            focused_widget.set_font_scale(1.0)
+            cluster_id = focused_widget.pulse_cluster_id
+            if cluster_id and cluster_id in self.active_clusters:
+                for terminal in self.active_clusters[cluster_id]:
+                    terminal.set_font_scale(1.0)
+            else:
+                focused_widget.set_font_scale(1.0)
         return True
 
     def _on_tab_switched(self, notebook, param):
