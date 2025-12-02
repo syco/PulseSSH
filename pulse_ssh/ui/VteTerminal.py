@@ -50,19 +50,7 @@ class VteTerminal(Vte.Terminal):
                 None, None, -1, None, None, None
             )
 
-            handler_id = [None]
-            def on_prompt_detected(terminal):
-                text = terminal.get_text_format(Vte.Format.TEXT)
-                if text and text.rstrip().endswith(('$', '#', '>', '%')):
-                    if handler_id[0]:
-                        terminal.disconnect(handler_id[0])
-                        handler_id[0] = None
-
-                    terminal.grab_focus()
-                    return True
-                return False
-            handler_id[0] = self.connect("contents-changed", on_prompt_detected)
-
+            self._wait_for_prompt_and_focus()
         elif connection.type == "ssh":
             final_cmd, all_remote_scripts, remote_script_paths, proxy_port = utils.build_ssh_command(self.app_window.app_config, connection)
 
@@ -77,32 +65,7 @@ class VteTerminal(Vte.Terminal):
 
             all_post_remote_cmds = self.app_window.app_config.post_remote_cmds + connection.post_remote_cmds
 
-            handler_id = [None]
-            def on_prompt_detected(terminal):
-                text = terminal.get_text_format(Vte.Format.TEXT)
-                if text and text.rstrip().endswith(('$', '#', '>', '%')):
-                    if handler_id[0]:
-                        terminal.disconnect(handler_id[0])
-                        handler_id[0] = None
-
-                    if all_post_remote_cmds or all_remote_scripts:
-                        commands_to_run = []
-
-                        for remote_path in remote_script_paths:
-                            commands_to_run.append(f" chmod +x {remote_path}")
-                            commands_to_run.append(f" {remote_path}")
-                            commands_to_run.append(f" rm {remote_path}")
-
-                        commands_to_run.extend([utils.substitute_variables(cmd, connection, proxy_port) for cmd in all_post_remote_cmds])
-
-                        if commands_to_run:
-                            full_command = "\n".join(commands_to_run) + "\n"
-                            terminal.feed_child(full_command.encode('utf-8'))
-
-                    terminal.grab_focus()
-                    return True
-                return False
-            handler_id[0] = self.connect("contents-changed", on_prompt_detected)
+            self._wait_for_prompt_and_focus(all_post_remote_cmds, all_remote_scripts, remote_script_paths, proxy_port, connection)
         elif connection.type == "sftp":
             final_cmd = utils.build_sftp_command(self.app_window.app_config, connection)
 
@@ -115,18 +78,7 @@ class VteTerminal(Vte.Terminal):
                 None, None, -1, None, None, None
             )
 
-            handler_id = [None]
-            def on_prompt_detected(terminal):
-                text = terminal.get_text_format(Vte.Format.TEXT)
-                if text and text.rstrip().endswith(('$', '#', '>', '%')):
-                    if handler_id[0]:
-                        terminal.disconnect(handler_id[0])
-                        handler_id[0] = None
-
-                    terminal.grab_focus()
-                    return True
-                return False
-            handler_id[0] = self.connect("contents-changed", on_prompt_detected)
+            self._wait_for_prompt_and_focus()
 
         click_gesture = Gtk.GestureClick()
         click_gesture.set_button(Gdk.BUTTON_SECONDARY)
@@ -146,6 +98,38 @@ class VteTerminal(Vte.Terminal):
             self.app_window._join_cluster(self, cluster_id)
 
         self.connected = True
+
+    def _wait_for_prompt_and_focus(self, all_post_remote_cmds=None, all_remote_scripts=None, remote_script_paths=None, proxy_port=None, connection=None):
+        handler_id = [None]
+
+        def on_prompt_detected(terminal):
+            text = terminal.get_text_format(Vte.Format.TEXT)
+            if text and text.rstrip().endswith(('$', '#', '>', '%')):
+                if handler_id[0]:
+                    terminal.disconnect(handler_id[0])
+                    handler_id[0] = None
+
+                if all_post_remote_cmds or all_remote_scripts:
+                    commands_to_run = []
+
+                    if remote_script_paths:
+                        for remote_path in remote_script_paths:
+                            commands_to_run.append(f" chmod +x {remote_path}")
+                            commands_to_run.append(f" {remote_path}")
+                            commands_to_run.append(f" rm {remote_path}")
+
+                    if all_post_remote_cmds and connection:
+                        commands_to_run.extend([utils.substitute_variables(cmd, connection, proxy_port) for cmd in all_post_remote_cmds])
+
+                    if commands_to_run:
+                        full_command = "\n".join(commands_to_run) + "\n"
+                        terminal.feed_child(full_command.encode('utf-8'))
+
+                terminal.grab_focus()
+                return True
+            return False
+
+        handler_id[0] = self.connect("contents-changed", on_prompt_detected)
 
     def _create_split_submenu(self, action_group, orientation, source_page):
         submenu = Gio.Menu()
