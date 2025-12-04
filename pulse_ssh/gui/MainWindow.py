@@ -6,6 +6,7 @@ gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
 gi.require_version('Vte', '3.91')
 
+from datetime import datetime
 from gi.repository import Adw  # type: ignore
 from gi.repository import GLib  # type: ignore
 from gi.repository import Gdk  # type: ignore
@@ -19,11 +20,11 @@ import math
 import os
 import pulse_ssh.Utils as utils
 import pulse_ssh.data.Connection as connection
-import pulse_ssh.ui.VteTerminal as vte_terminal
-import pulse_ssh.ui.views.ClustersView as clusters_view
-import pulse_ssh.ui.views.CommandsHistoryView as commands_history_view
-import pulse_ssh.ui.views.ConnectionsView as connections_view
-import pulse_ssh.ui.views.list_items.CommandHistoryItem as command_history_item
+import pulse_ssh.data.HistoryEntry as history_entry
+import pulse_ssh.gui.VteTerminal as vte_terminal
+import pulse_ssh.gui.views.ClustersView as clusters_view
+import pulse_ssh.gui.views.ConnectionsView as connections_view
+import pulse_ssh.gui.views.HistoryView as history_view
 import uuid
 
 class MainWindow(Adw.ApplicationWindow):
@@ -35,8 +36,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.about_info = about_info
         self._force_quit = False
         self.active_clusters: Dict[str, List[vte_terminal.VteTerminal]] = {}
-        self.command_history: Dict[str, List[command_history_item.CommandHistoryItem]] = {}
-        self.post_cmd_subprocesses = []
+        self.command_history: Dict[str, List[history_entry.HistoryEntry]] = {}
         self.app_config, self.connections, self.clusters = utils.load_app_config(self.config_dir)
         self.cache_config = utils.load_cache_config(self.config_dir)
 
@@ -101,8 +101,8 @@ class MainWindow(Adw.ApplicationWindow):
         self.panel_stack.add_titled(clusters_widget, "clusters", "")
         self.panel_stack.get_page(clusters_widget).set_icon_name("view-group-symbolic")
 
-        self.commands_history_view = commands_history_view.CommandsHistoryView(self)
-        history_widget = self.commands_history_view.getAdwToolbarView()
+        self.history_view = history_view.HistoryView(self)
+        history_widget = self.history_view.getAdwToolbarView()
         self.panel_stack.add_titled(history_widget, "history", "")
         self.panel_stack.get_page(history_widget).set_icon_name("view-history-symbolic")
 
@@ -364,11 +364,17 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_search_shortcut(self, *args):
         if self.panel_stack.get_visible_child_name() == "connections":
-            self.connections_view.filter_entry.grab_focus()
             self.connections_view.filter_header_bar.set_visible(True)
+            self.connections_view.filter_entry.grab_focus()
+            self.connections_view.filter_entry.select_region(0, -1)
         elif self.panel_stack.get_visible_child_name() == "clusters":
-            self.clusters_view.filter_entry.grab_focus()
             self.clusters_view.filter_header_bar.set_visible(True)
+            self.clusters_view.filter_entry.grab_focus()
+            self.clusters_view.filter_entry.select_region(0, -1)
+        elif self.panel_stack.get_visible_child_name() == "history":
+            self.history_view.filter_header_bar.set_visible(True)
+            self.history_view.filter_entry.grab_focus()
+            self.history_view.filter_entry.select_region(0, -1)
         return True
 
     def _on_edit_shortcut(self, *args):
@@ -461,6 +467,10 @@ class MainWindow(Adw.ApplicationWindow):
 
         content = page.get_child()
         if not content:
+            return
+
+        if hasattr(page, 'pulse_history_uuid') and page.pulse_history_uuid:
+            self.history_view.open_history_in_tab(None, None, page.pulse_history_uuid)
             return
 
         terminal = self._find_first_terminal_in_widget(content)
@@ -611,39 +621,6 @@ class MainWindow(Adw.ApplicationWindow):
         self.notebook.set_selected_page(page)
         self.updatePageTitle(page)
 
-        if conn.type == "ssh":
-            def on_post_cmd_finished(subprocess, result, conn_uuid, cmd):
-                try:
-                    ok, stdout, stderr = subprocess.communicate_utf8_finish(result)
-                    history_item = command_history_item.CommandHistoryItem(
-                        command=cmd,
-                        stdout=stdout,
-                        stderr=stderr,
-                        ok=ok,
-                    )
-                    if conn_uuid not in self.command_history:
-                        self.command_history[conn_uuid] = []
-                    self.command_history[conn_uuid].append(history_item)
-                    self.commands_history_view.populate_tree()
-                    if not ok:
-                        self.show_error_dialog("Post-connection Command Failed", f"Command failed:\n{cmd}\n\n{stderr}")
-                except GLib.Error as e:
-                    if not e.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED):
-                        self.show_error_dialog("Post-connection Command Failed", f"Command failed:\n{cmd}\n\n{e.message}")
-                self.post_cmd_subprocesses.remove(subprocess)
-
-            all_post_local_cmds = self.app_config.post_local_cmds + conn.post_local_cmds
-            for cmd in all_post_local_cmds:
-                if cmd:
-                    substituted_cmd = utils.substitute_variables(cmd, conn)
-                    try:
-                        subprocess = Gio.Subprocess.new([self.app_config.shell_program, '-c', substituted_cmd], Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE)
-                        self.post_cmd_subprocesses.append(subprocess)
-                        subprocess.communicate_utf8_async(None, None, on_post_cmd_finished, conn.uuid, cmd)
-                    except GLib.Error as e:
-                        self.show_error_dialog("Post-connection Command Failed", f"Failed to execute command:\n{cmd}\n\n{e.message}")
-                        return
-
     def create_terminal(self, conn: connection.Connection, cluster_id: Optional[str] = None) -> Gtk.ScrolledWindow:
         if conn.uuid in self.connections:
             conn = self.connections[conn.uuid]
@@ -764,26 +741,6 @@ class MainWindow(Adw.ApplicationWindow):
 
         terminal.pulse_cluster_id = None
 
-    def _create_local_scripts_submenu(self, terminal, action_group):
-        submenu = Gio.Menu()
-        all_manual_cmds = {**self.app_config.post_manual_local_cmds, **terminal.pulse_conn.post_manual_local_cmds}
-
-        if not all_manual_cmds:
-            no_scripts_item = Gio.MenuItem.new("No scripts defined", None)
-            no_scripts_item.set_action_and_target_value("term.no_scripts", GLib.Variant.new_string(""))
-            no_scripts_action = Gio.SimpleAction.new("no_scripts", None)
-            no_scripts_action.set_enabled(False)
-            action_group.add_action(no_scripts_action)
-            return submenu
-
-        for i, (name, command) in enumerate(all_manual_cmds.items()):
-            action_name = f"run_manual_script_{i}"
-            action = Gio.SimpleAction.new(action_name, None)
-            action.connect("activate", self._run_manual_local_script, command, terminal.pulse_conn)
-            action_group.add_action(action)
-            submenu.append(name, f"term.{action_name}")
-        return submenu
-
     def _find_first_terminal_in_widget(self, widget) -> Optional[vte_terminal.VteTerminal]:
         if isinstance(widget, vte_terminal.VteTerminal):
             return widget
@@ -837,36 +794,6 @@ class MainWindow(Adw.ApplicationWindow):
             terminals.extend(self._find_all_terminals_in_widget(child))
 
         return terminals
-
-    def _run_manual_local_script(self, action, param, cmd, conn):
-        substituted_cmd = utils.substitute_variables(cmd, conn)
-        def on_finished(subprocess, result, cmd, conn_uuid):
-            try:
-                ok, stdout, stderr = subprocess.communicate_utf8_finish(result)
-                history_item = command_history_item.CommandHistoryItem(
-                    command=substituted_cmd,
-                    stdout=stdout,
-                    stderr=stderr,
-                    ok=ok,
-                )
-                if conn_uuid not in self.command_history:
-                    self.command_history[conn_uuid] = []
-                self.command_history[conn_uuid].append(history_item)
-                self.commands_history_view.populate_tree()
-                self.toast_overlay.add_toast(Adw.Toast.new(f"Script finished: {substituted_cmd}"))
-                if not ok:
-                    self.show_error_dialog("Manual Script Failed", f"Command failed:\n{substituted_cmd}\n\n{stderr}")
-            except GLib.Error as e:
-                if not e.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED):
-                    self.show_error_dialog("Manual Script Failed", f"Command failed:\n{substituted_cmd}\n\n{e.message}")
-            self.post_cmd_subprocesses.remove(subprocess)
-
-        try:
-            subprocess = Gio.Subprocess.new([self.app_config.shell_program, '-c', substituted_cmd], Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE)
-            self.post_cmd_subprocesses.append(subprocess)
-            subprocess.communicate_utf8_async(None, None, on_finished, substituted_cmd, conn.uuid)
-        except GLib.Error as e:
-            self.show_error_dialog("Manual Script Failed", f"Failed to execute command:\n{substituted_cmd}\n\n{e.message}")
 
     def build_paned_widget(self, orientation, source_content: Gtk.Widget, target_content: Gtk.Widget) -> Gtk.Paned:
         paned = Gtk.Paned(orientation=orientation, wide_handle=False)
@@ -1067,7 +994,7 @@ class MainWindow(Adw.ApplicationWindow):
             page.set_indicator_icon(Gio.Icon.new_for_string("emblem-unmounted"))
             page.set_needs_attention(True)
 
-    def on_terminal_child_exited(self, terminal: vte_terminal.VteTerminal, status: int, conn: connection.Connection):
+    def on_terminal_child_exited(self, terminal: vte_terminal.VteTerminal, status: int):
         terminal.connected = False
 
         page = terminal.get_ancestor_page()
@@ -1084,15 +1011,23 @@ class MainWindow(Adw.ApplicationWindow):
 
         timestamp = GLib.DateTime.new_now_local().format("%Y-%m-%d %H:%M:%S")
 
+        connection = terminal.pulse_conn
+
         def wait_for_key_behavior():
-            message = f"\r\n\r\n --- SSH connection closed at {timestamp}.\r\n --- Press Enter to restart.\r\n --- Press Esc to close terminal.\r\n"
+            message = (
+                f"\r\n"
+                f"\r\n{utils.color_iyellow} --- SSH connection closed at {timestamp}.{utils.color_reset}"
+                f"\r\n{utils.color_iyellow} --- Press Enter to restart.{utils.color_reset}"
+                f"\r\n{utils.color_iyellow} --- Press Esc to close terminal.{utils.color_reset}"
+                f"\r\n"
+            )
             terminal.feed(message.encode('utf-8'))
 
             evk = Gtk.EventControllerKey()
             def on_key_pressed(controller, keyval, keycode, state):
                 if keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
                     terminal.remove_controller(evk)
-                    self.replace_terminal(terminal, self.create_terminal(conn))
+                    self.replace_terminal(terminal, self.create_terminal(connection))
                     return True
                 if keyval == Gdk.KEY_Escape:
                     terminal.remove_controller(evk)
@@ -1107,10 +1042,10 @@ class MainWindow(Adw.ApplicationWindow):
         elif behavior == "restart":
             connect_duration = GLib.get_monotonic_time() - terminal.connect_time
             if connect_duration < 5 * 1_000_000:
-                self.toast_overlay.add_toast(Adw.Toast.new(f"Restart loop detected for '{conn.name}'. Pausing auto-restart."))
+                self.toast_overlay.add_toast(Adw.Toast.new(f"Restart loop detected for '{connection.name}'. Pausing auto-restart."))
                 wait_for_key_behavior()
             else:
-                self.replace_terminal(terminal, self.create_terminal(conn))
+                self.replace_terminal(terminal, self.create_terminal(connection))
         elif behavior == "wait_for_key":
             wait_for_key_behavior()
 
@@ -1131,6 +1066,17 @@ class MainWindow(Adw.ApplicationWindow):
                 parent.set_end_child(new_scrolled_window)
         if page:
             self.updatePageTitle(page)
+
+    def add_history_item(self, conn_uuid: str, substituted_cmd: str, stdout: str, stderr: str, ok: bool):
+        history_item = history_entry.HistoryEntry(substituted_cmd, stdout, stderr, ok, datetime.now())
+
+        if conn_uuid not in self.command_history:
+            self.command_history[conn_uuid] = []
+        self.command_history[conn_uuid].append(history_item)
+        self.history_view.populate_tree()
+        self.toast_overlay.add_toast(Adw.Toast.new(f"'{substituted_cmd}' finished!"))
+        if not ok or (stderr and len(stderr) > 0):
+            self.show_error_dialog("ERROR!!", f"'{substituted_cmd}' failed.\n\n{stderr}")
 
     def show_error_dialog(self, title, message):
         dialog = Adw.MessageDialog(

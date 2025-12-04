@@ -15,12 +15,13 @@ from gi.repository import Pango  # type: ignore
 from gi.repository import Vte  # type: ignore
 from typing import Optional
 from typing import TYPE_CHECKING
+import json
 import os
 import pulse_ssh.Utils as utils
 import pulse_ssh.data.Connection as connection
 
 if TYPE_CHECKING:
-    from pulse_ssh.ui.MainWindow import MainWindow
+    from pulse_ssh.gui.MainWindow import MainWindow
 
 class VteTerminal(Vte.Terminal):
     def __init__(self, app_window: "MainWindow", connection: connection.Connection, cluster_id: Optional[str] = None):
@@ -40,45 +41,49 @@ class VteTerminal(Vte.Terminal):
         self.set_margin_start(1)
         self.set_margin_end(1)
 
+        self.subbed_orchestrator_script_path = ""
+        self.proxy_port: Optional[int] = None
+        self.orchestrator_process: Optional[Gio.Subprocess] = None
+
+        args = None
+
         if connection.type == "local":
-            self.spawn_async(
-                Vte.PtyFlags.DEFAULT,
-                os.environ['HOME'],
-                [self.app_window.app_config.shell_program],
-                [],
-                GLib.SpawnFlags.SEARCH_PATH,
-                None, None, -1, None, None, None
-            )
+            args  = [self.app_window.app_config.shell_program]
 
-            self._wait_for_prompt_and_focus()
         elif connection.type == "ssh":
-            final_cmd, all_remote_scripts, remote_script_paths, proxy_port = utils.build_ssh_command(self.app_window.app_config, connection)
+            final_cmd, self.proxy_port = utils.build_ssh_command(self.app_window.app_config, connection)
+            args = [self.app_window.app_config.shell_program, "-c", final_cmd]
 
-            self.spawn_async(
-                Vte.PtyFlags.DEFAULT,
-                os.environ['HOME'],
-                [self.app_window.app_config.shell_program, "-c", final_cmd],
-                [],
-                GLib.SpawnFlags.SEARCH_PATH,
-                None, None, -1, None, None, None
-            )
-
-            all_post_remote_cmds = self.app_window.app_config.post_remote_cmds + connection.post_remote_cmds
-
-            self._wait_for_prompt_and_focus(all_post_remote_cmds, all_remote_scripts, remote_script_paths, proxy_port, connection)
         elif connection.type == "sftp":
             final_cmd = utils.build_sftp_command(self.app_window.app_config, connection)
+            args = [self.app_window.app_config.shell_program, "-c", final_cmd]
 
+        if args:
             self.spawn_async(
                 Vte.PtyFlags.DEFAULT,
                 os.environ['HOME'],
-                [self.app_window.app_config.shell_program, "-c", final_cmd],
+                args,
                 [],
                 GLib.SpawnFlags.SEARCH_PATH,
                 None, None, -1, None, None, None
             )
 
-            self._wait_for_prompt_and_focus()
+            handler_id = [None]
+            def on_prompt_detected(terminal):
+                last_line = terminal.get_last_line()
+                if last_line and last_line.rstrip().endswith(('$', '#', '>', '%')):
+                    if handler_id[0]:
+                        terminal.disconnect(handler_id[0])
+                        handler_id[0] = None
+                    terminal.grab_focus()
+
+                    if connection.type == "ssh":
+                        self.start_orchestrator_script()
+
+                    return True
+                return False
+
+            handler_id[0] = self.connect("contents-changed", on_prompt_detected)
 
         click_gesture = Gtk.GestureClick()
         click_gesture.set_button(Gdk.BUTTON_SECONDARY)
@@ -90,7 +95,7 @@ class VteTerminal(Vte.Terminal):
         middle_click_gesture.connect("pressed", self.on_middle_click_paste)
         self.add_controller(middle_click_gesture)
 
-        self.connect("child-exited", self.app_window.on_terminal_child_exited, connection)
+        self.connect("child-exited", self.app_window.on_terminal_child_exited)
 
         self.pulse_conn = connection
         self.pulse_cluster_id = cluster_id
@@ -102,38 +107,6 @@ class VteTerminal(Vte.Terminal):
             self.app_window._join_cluster(self, cluster_id)
 
         self.connected = True
-
-    def _wait_for_prompt_and_focus(self, all_post_remote_cmds=None, all_remote_scripts=None, remote_script_paths=None, proxy_port=None, connection=None):
-        handler_id = [None]
-
-        def on_prompt_detected(terminal):
-            last_line = terminal.get_last_line()
-            if last_line and last_line.rstrip().endswith(('$', '#', '>', '%')):
-                if handler_id[0]:
-                    terminal.disconnect(handler_id[0])
-                    handler_id[0] = None
-
-                if all_post_remote_cmds or all_remote_scripts:
-                    commands_to_run = []
-
-                    if remote_script_paths:
-                        for remote_path in remote_script_paths:
-                            commands_to_run.append(f" chmod +x {remote_path}")
-                            commands_to_run.append(f" {remote_path}")
-                            commands_to_run.append(f" rm {remote_path}")
-
-                    if all_post_remote_cmds and connection:
-                        commands_to_run.extend([utils.substitute_variables(cmd, connection, proxy_port) for cmd in all_post_remote_cmds])
-
-                    if commands_to_run:
-                        full_command = "\n".join(commands_to_run) + "\n"
-                        terminal.feed_child(full_command.encode('utf-8'))
-
-                terminal.grab_focus()
-                return True
-            return False
-
-        handler_id[0] = self.connect("contents-changed", on_prompt_detected)
 
     def _create_split_submenu(self, action_group, orientation, source_page):
         submenu = Gio.Menu()
@@ -164,10 +137,6 @@ class VteTerminal(Vte.Terminal):
     def build_menu(self, gesture, n_press, x, y):
         source_page = self.get_ancestor_page()
         if not source_page:
-            self.app_window.show_error_dialog(
-                "Internal UI Error",
-                "Could not find the parent tab for the disconnected terminal. The tab's status indicator may not update correctly."
-            )
             return
 
         menu_model = Gio.Menu()
@@ -212,8 +181,11 @@ class VteTerminal(Vte.Terminal):
 
         menu_model.append_section(None, Gio.Menu())
 
-        local_scripts_submenu = self.app_window._create_local_scripts_submenu(self, action_group)
-        menu_model.append_submenu("Local Scripts", local_scripts_submenu)
+        local_cmds_submenu = self.create_local_cmds_submenu(action_group)
+        menu_model.append_submenu("Local Commands", local_cmds_submenu)
+
+        remote_cmds_submenu = self.create_remote_cmds_submenu(action_group)
+        menu_model.append_submenu("Remote Commands", remote_cmds_submenu)
 
         menu_model.append_section(None, Gio.Menu())
 
@@ -235,6 +207,65 @@ class VteTerminal(Vte.Terminal):
         rect.x, rect.y, rect.width, rect.height = int(x), int(y), 1, 1
         popover.set_pointing_to(rect)
         popover.popup()
+
+    def create_local_cmds_submenu(self, action_group):
+        submenu = Gio.Menu()
+        all_local_cmds = {**self.app_window.app_config.local_cmds, **self.pulse_conn.local_cmds}
+
+        if not all_local_cmds:
+            no_scripts_item = Gio.MenuItem.new("No scripts defined", None)
+            no_scripts_item.set_action_and_target_value("term.no_scripts", GLib.Variant.new_string(""))
+            no_scripts_action = Gio.SimpleAction.new("no_scripts", None)
+            no_scripts_action.set_enabled(False)
+            action_group.add_action(no_scripts_action)
+            return submenu
+
+        for i, (name, command) in enumerate(all_local_cmds.items()):
+            action_name = f"run_local_cmd_{i}"
+            action = Gio.SimpleAction.new(action_name, None)
+            action.connect("activate", self.run_local_cmd, command)
+            action_group.add_action(action)
+            submenu.append(name, f"term.{action_name}")
+        return submenu
+
+    def create_remote_cmds_submenu(self, action_group):
+        submenu = Gio.Menu()
+        all_remote_cmds = {**self.app_window.app_config.remote_cmds, **self.pulse_conn.remote_cmds}
+
+        if not all_remote_cmds:
+            no_scripts_item = Gio.MenuItem.new("No scripts defined", None)
+            no_scripts_item.set_action_and_target_value("term.no_scripts", GLib.Variant.new_string(""))
+            no_scripts_action = Gio.SimpleAction.new("no_scripts", None)
+            no_scripts_action.set_enabled(False)
+            action_group.add_action(no_scripts_action)
+            return submenu
+
+        for i, (name, command) in enumerate(all_remote_cmds.items()):
+            action_name = f"run_remote_cmd_{i}"
+            action = Gio.SimpleAction.new(action_name, None)
+            action.connect("activate", self.run_remote_cmd, command)
+            action_group.add_action(action)
+            submenu.append(name, f"term.{action_name}")
+        return submenu
+
+    def run_local_cmd(self, action, param, cmd):
+        substituted_cmd = utils.substitute_variables(cmd, self.pulse_conn)
+        def on_finished(subprocess, result, cmd, conn_uuid):
+            try:
+                ok, stdout, stderr = subprocess.communicate_utf8_finish(result)
+                self.app_window.add_history_item(self.pulse_conn.uuid, substituted_cmd, stdout, stderr, ok)
+            except GLib.Error as e:
+                self.app_window.add_history_item(self.pulse_conn.uuid, substituted_cmd, "", e.message, False)
+
+        try:
+            subprocess = Gio.Subprocess.new([self.app_window.app_config.shell_program, '-c', substituted_cmd], Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE)
+            subprocess.communicate_utf8_async(None, None, on_finished, substituted_cmd, self.pulse_conn.uuid)
+        except GLib.Error as e:
+            self.app_window.add_history_item(self.pulse_conn.uuid, substituted_cmd, "", e.message, False)
+
+    def run_remote_cmd(self, action, param, cmd):
+        substituted_cmd = utils.substitute_variables(cmd, self.pulse_conn)
+        self.feed_child(f"{substituted_cmd}\n".encode('utf-8'))
 
     def paste_clipboard(self):
         if self.pulse_cluster_id and self.pulse_cluster_id in self.app_window.active_clusters:
@@ -347,14 +378,100 @@ class VteTerminal(Vte.Terminal):
         return None
 
     def get_last_line(self) -> str:
-        full_text = self.get_text_format(Vte.Format.TEXT)
-        if not full_text:
-            return ""
+        col, row = self.get_cursor_position()
+        line, _ = self.get_text_range_format(Vte.Format.TEXT, row, 0, row, col)
 
-        if not full_text.endswith('\n'):
-            return ""
+        return line.rstrip()
 
-        lines = full_text.rstrip('\n').split('\n')
-        line = lines[-1] if lines else ""
-        print(line)
-        return line
+    def start_orchestrator_script(self):
+        def on_line_received(data_stream: Gio.DataInputStream, result, is_command: bool = True):
+            if not self.orchestrator_process:
+                try:
+                    data_stream.read_line_finish(result)
+                    data_stream.close_async(GLib.PRIORITY_DEFAULT, None, None, None)
+                except GLib.Error as e:
+                    self.app_window.add_history_item(self.pulse_conn.uuid, self.subbed_orchestrator_script_path, "", e.message, False)
+                return
+
+            try:
+                line_bytes, _ = data_stream.read_line_finish(result)
+                if line_bytes:
+                    command_str = line_bytes.decode('utf-8').rstrip()
+                    if command_str:
+                        if is_command:
+                            try:
+                                msg = json.loads(command_str)
+                                action = msg.get('action')
+                                if action == 'feed-child':
+                                    data = msg.get('data', '')
+                                    if data:
+                                        self.feed_child(f"{data}\n".encode('utf-8'))
+                                elif action == 'feed':
+                                    data = msg.get('data', '')
+                                    if data:
+                                        self.feed(f"\r\n {utils.color_igreen}--- {data}{utils.color_reset}\r\n".encode('utf-8'))
+                                elif action == 'get-last-line':
+                                    line = self.get_last_line()
+                                    if line:
+                                        self.orchestrator_stdin.write(f"{line}\n".encode('utf-8'), None)
+                                        self.orchestrator_stdin.flush(None)
+                                elif action == 'get-variable':
+                                    variable = msg.get('data')
+                                    if variable:
+                                        substituted_bytes = utils.substitute_variables(variable, self.pulse_conn, self.proxy_port)
+                                        self.orchestrator_stdin.write(f"{substituted_bytes}\n".encode('utf-8'), None)
+                                        self.orchestrator_stdin.flush(None)
+
+                            except json.JSONDecodeError:
+                                message = f"Orchestrator script sent invalid JSON: {command_str}"
+                                self.app_window.add_history_item(self.pulse_conn.uuid, command_str, "", message, False)
+                        else:
+                            message = f"\r\n{utils.color_ired} --- {command_str}{utils.color_reset}\r\n"
+                            self.feed(message.encode('utf-8'))
+
+                    data_stream.read_line_async(GLib.PRIORITY_DEFAULT, None, on_line_received, is_command)
+                else:
+                    data_stream.close_async(GLib.PRIORITY_DEFAULT, None, None, None)
+            except GLib.Error as e:
+                self.app_window.add_history_item(self.pulse_conn.uuid, self.subbed_orchestrator_script_path, "", e.message, False)
+
+        def on_orchestrator_exited(process, result):
+            try:
+                success = process.wait_finish(result)
+                exit_status = process.get_exit_status()
+                message = f"Orchestrator script exited with status {exit_status}"
+                self.app_window.add_history_item(self.pulse_conn.uuid, self.subbed_orchestrator_script_path, message, "", success)
+            except GLib.Error as e:
+                self.app_window.add_history_item(self.pulse_conn.uuid, self.subbed_orchestrator_script_path, "", e.message, False)
+            finally:
+                self.orchestrator_process = None
+
+
+        if self.pulse_conn and self.pulse_conn.orchestrator_script:
+            script_path = os.path.expanduser(self.pulse_conn.orchestrator_script)
+            if not os.path.exists(script_path):
+                message = f"Orchestrator script '{script_path}' not found"
+                self.app_window.add_history_item(self.pulse_conn.uuid, script_path, "", message, False)
+                return
+
+            self.subbed_orchestrator_script_path = utils.substitute_variables(script_path, self.pulse_conn, self.proxy_port)
+
+            try:
+                self.orchestrator_process = Gio.Subprocess.new(
+                    [self.app_window.app_config.shell_program, '-c', self.subbed_orchestrator_script_path],
+                    Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
+                )
+                if self.orchestrator_process:
+                    self.orchestrator_stdin = self.orchestrator_process.get_stdin_pipe()
+                    orchestrator_stdout = self.orchestrator_process.get_stdout_pipe()
+                    if orchestrator_stdout:
+                        stdout_stream = Gio.DataInputStream.new(orchestrator_stdout)
+                        stdout_stream.read_line_async(GLib.PRIORITY_DEFAULT, None, on_line_received, True)
+                    orchestrator_stderr = self.orchestrator_process.get_stderr_pipe()
+                    if orchestrator_stderr:
+                        stderr_stream = Gio.DataInputStream.new(orchestrator_stderr)
+                        stderr_stream.read_line_async(GLib.PRIORITY_DEFAULT, None, on_line_received, False)
+
+                    self.orchestrator_process.wait_async(None, on_orchestrator_exited)
+            except GLib.Error as e:
+                self.app_window.add_history_item(self.pulse_conn.uuid, self.subbed_orchestrator_script_path, "", e.message, False)

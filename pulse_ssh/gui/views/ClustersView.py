@@ -13,12 +13,12 @@ from gi.repository import Gtk  # type: ignore
 from typing import TYPE_CHECKING
 import pulse_ssh.Utils as utils
 import pulse_ssh.data.Cluster as cluster
-import pulse_ssh.ui.dialogs.AppConfigDialog as app_config_dialog
-import pulse_ssh.ui.dialogs.ClusterDialog as cluster_dialog
-import pulse_ssh.ui.views.list_items.ClusterListItem as cluster_list_item
+import pulse_ssh.gui.dialogs.AppConfigDialog as app_config_dialog
+import pulse_ssh.gui.dialogs.ClusterDialog as cluster_dialog
+import pulse_ssh.gui.views.list_items.ClusterListItem as cluster_list_item
 
 if TYPE_CHECKING:
-    from pulse_ssh.ui.MainWindow import MainWindow
+    from pulse_ssh.gui.MainWindow import MainWindow
 class ClustersView():
     def __init__(self, app_window: "MainWindow"):
         super().__init__()

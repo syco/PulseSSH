@@ -5,6 +5,7 @@ gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 
 from gi.repository import Adw  # type: ignore
+from gi.repository import GLib  # type: ignore
 from gi.repository import GObject  # type: ignore
 from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
@@ -13,7 +14,7 @@ from gi.repository import Pango  # type: ignore
 import os
 import pulse_ssh.Utils as utils
 import pulse_ssh.data.AppConfig as app_config
-import pulse_ssh.ui.views.list_items.StringObject as string_object
+import pulse_ssh.gui.views.list_items.StringObject as string_object
 
 SHELL_PROGRAMS = [
     "bash",
@@ -247,17 +248,11 @@ class AppConfigDialog(Adw.Window):
 
         self.stack.add_titled(page_grid, "ssh_settings", "SSH Settings")
 
-        self.pre_local_list = self._create_script_list_page(config.pre_local_cmds)
-        self.post_local_list = self._create_script_list_page(config.post_local_cmds)
-        self.post_remote_list = self._create_script_list_page(config.post_remote_cmds)
-        self.remote_scripts_list = self._create_script_list_page(config.remote_scripts)
-        self.post_manual_local_list = self._create_manual_script_list_page(config.post_manual_local_cmds)
+        self.local_cmds_list = self._create_cmds_list_page(config.local_cmds)
+        self.stack.add_titled(self.local_cmds_list, "local_cmds", "Local Commands")
 
-        self.stack.add_titled(self.pre_local_list, "pre_local", "Pre-Local")
-        self.stack.add_titled(self.post_local_list, "post_local", "Post-Local")
-        self.stack.add_titled(self.post_remote_list, "post_remote", "Post-Remote")
-        self.stack.add_titled(self.remote_scripts_list, "remote_scripts", "Remote Scripts")
-        self.stack.add_titled(self.post_manual_local_list, "post_manual_local", "Manual Scripts")
+        self.remote_cmds_list = self._create_cmds_list_page(config.remote_cmds)
+        self.stack.add_titled(self.remote_cmds_list, "remote_cmds", "Remote Commands")
 
     def _build_binaries_page(self, config: app_config.AppConfig):
         page_grid = Gtk.Grid(margin_start=10, margin_end=10, margin_top=10, margin_bottom=10, row_spacing=6, column_spacing=6)
@@ -379,7 +374,7 @@ class AppConfigDialog(Adw.Window):
         list_box.set_selection_mode(Gtk.SelectionMode.NONE)
 
         for command in commands:
-            self._add_script_row(list_box, command)
+            self._add_cmds_row(list_box, command)
 
         scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True, min_content_height=150)
         scrolled_window.set_child(list_box)
@@ -387,47 +382,20 @@ class AppConfigDialog(Adw.Window):
 
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         add_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_button.connect("clicked", lambda w: self._add_script_row(list_box))
+        add_button.connect("clicked", lambda w: self._add_cmds_row(list_box))
         button_box.append(add_button)
         page_box.append(button_box)
 
         return page_box
 
-    def _add_script_row(self, list_box, text=""):
-        row = Gtk.ListBoxRow()
-        row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
-
-        drag_handle = Gtk.Image.new_from_icon_name("open-menu-symbolic")
-        drag_handle.set_valign(Gtk.Align.CENTER)
-        drag_source = Gtk.DragSource()
-        drag_source.set_actions(Gdk.DragAction.MOVE)
-        drag_source.connect("prepare", lambda s, x, y: Gdk.ContentProvider.new_for_value(row))
-        drag_handle.add_controller(drag_source)
-        row_box.append(drag_handle)
-
-        entry = Gtk.Entry(text=text, hexpand=True)
-        row_box.append(entry)
-
-        remove_button = Gtk.Button(icon_name="list-remove-symbolic")
-        remove_button.set_valign(Gtk.Align.CENTER)
-        remove_button.connect("clicked", self._on_remove_script_clicked, list_box, row)
-        row_box.append(remove_button)
-
-        row.set_child(row_box)
-        list_box.append(row)
-
-        drop_target = Gtk.DropTarget.new(Gtk.ListBoxRow, Gdk.DragAction.MOVE)
-        drop_target.connect("drop", self._on_script_drop, list_box)
-        row.add_controller(drop_target)
-
-    def _create_manual_script_list_page(self, commands: dict):
+    def _create_cmds_list_page(self, commands: dict):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
 
         list_box = Gtk.ListBox()
         list_box.set_selection_mode(Gtk.SelectionMode.NONE)
 
         for name, command in commands.items():
-            self._add_manual_script_row(list_box, name, command)
+            self._add_cmds_row(list_box, name, command)
 
         scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True, min_content_height=150)
         scrolled_window.set_child(list_box)
@@ -435,13 +403,13 @@ class AppConfigDialog(Adw.Window):
 
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         add_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_button.connect("clicked", lambda w: self._add_manual_script_row(list_box))
+        add_button.connect("clicked", lambda w: self._add_cmds_row(list_box))
         button_box.append(add_button)
         page_box.append(button_box)
 
         return page_box
 
-    def _add_manual_script_row(self, list_box, name="", command=""):
+    def _add_cmds_row(self, list_box, name="", command=""):
         row = Gtk.ListBoxRow()
         row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
 
@@ -461,7 +429,7 @@ class AppConfigDialog(Adw.Window):
 
         remove_button = Gtk.Button(icon_name="list-remove-symbolic")
         remove_button.set_valign(Gtk.Align.CENTER)
-        remove_button.connect("clicked", self._on_remove_script_clicked, list_box, row)
+        remove_button.connect("clicked", self._on_remove_cmds_clicked, list_box, row)
         row_box.append(remove_button)
 
         row.set_child(row_box)
@@ -471,7 +439,7 @@ class AppConfigDialog(Adw.Window):
         drop_target.connect("drop", self._on_script_drop, list_box)
         row.add_controller(drop_target)
 
-    def _on_remove_script_clicked(self, button, list_box, row):
+    def _on_remove_cmds_clicked(self, button, list_box, row):
         list_box.remove(row)
 
     def _on_script_drop(self, target, value, x, y, list_box):
@@ -502,7 +470,7 @@ class AppConfigDialog(Adw.Window):
                 idx += 1
             return [script for script in scripts if script]
 
-        def get_manual_scripts_from_list(page_box):
+        def get_cmds_from_list(page_box):
             scripts = {}
             list_box = page_box.get_first_child().get_child().get_child()
             idx = 0
@@ -536,11 +504,8 @@ class AppConfigDialog(Adw.Window):
             ssh_x11_forwarding=self.ssh_x11_forwarding.get_active(),
             ssh_verbose=self.ssh_verbose.get_active(),
             ssh_force_pty=self.ssh_force_pty.get_active(),
-            pre_local_cmds=get_scripts_from_list(self.pre_local_list),
-            post_local_cmds=get_scripts_from_list(self.post_local_list),
-            post_remote_cmds=get_scripts_from_list(self.post_remote_list),
-            remote_scripts=get_scripts_from_list(self.remote_scripts_list),
-            post_manual_local_cmds=get_manual_scripts_from_list(self.post_manual_local_list),
+            local_cmds=get_cmds_from_list(self.local_cmds_list),
+            remote_cmds=get_cmds_from_list(self.remote_cmds_list),
             ssh_path=self.ssh_path_entry.get_text(),
             sftp_path=self.sftp_path_entry.get_text(),
             scp_path=self.scp_path_entry.get_text(),

@@ -162,13 +162,15 @@ class CursesWindow:
                         collapsed.add(selected_path)
 
             elif key == 10:
-                conn_details = self.connections.get(uuid_to_execute)
-                final_cmd, all_remote_scripts, remote_script_paths, proxy_port = utils.build_ssh_command(self.app_config, conn_details)
+                if uuid_to_execute:
+                    conn_details = self.connections.get(uuid_to_execute)
+                    if conn_details:
+                        final_cmd, proxy_port = utils.build_ssh_command(self.app_config, conn_details)
 
-                if final_cmd:
-                    curses.endwin()
-                    subprocess.run(final_cmd, shell=True)
-                    curses.doupdate()
+                        if final_cmd:
+                            curses.endwin()
+                            subprocess.run(final_cmd, shell=True)
+                            curses.doupdate()
 
             elif key == curses.KEY_BACKSPACE or key == 127:
                 current_query = current_query[:-1]

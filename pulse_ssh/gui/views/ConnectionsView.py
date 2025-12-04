@@ -14,12 +14,12 @@ from gi.repository import Gtk  # type: ignore
 from typing import TYPE_CHECKING
 import pulse_ssh.Utils as utils
 import pulse_ssh.data.Connection as connection
-import pulse_ssh.ui.dialogs.AppConfigDialog as app_config_dialog
-import pulse_ssh.ui.dialogs.ConnectionDialog as connection_dialog
-import pulse_ssh.ui.views.list_items.ConnectionListItem as connection_list_item
+import pulse_ssh.gui.dialogs.AppConfigDialog as app_config_dialog
+import pulse_ssh.gui.dialogs.ConnectionDialog as connection_dialog
+import pulse_ssh.gui.views.list_items.ConnectionListItem as connection_list_item
 
 if TYPE_CHECKING:
-    from pulse_ssh.ui.MainWindow import MainWindow
+    from pulse_ssh.gui.MainWindow import MainWindow
 class ConnectionsView():
     def __init__(self, app_window: "MainWindow"):
         super().__init__()

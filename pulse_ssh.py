@@ -32,7 +32,7 @@ def run_gtk_app(args):
 
         from gi.repository import Adw  # type: ignore
         from gi.repository import GLib  # type: ignore
-        import pulse_ssh.ui.MainWindow as main_window
+        import pulse_ssh.gui.MainWindow as main_window
         import signal
 
         class PulseSSHApp(Adw.Application):

@@ -144,17 +144,16 @@ class ConnectionDialog(Adw.Window):
 
         self._build_ssh_options_page()
 
-        self.pre_local_list = self._create_script_list_page(self.conn.pre_local_cmds if self.conn else [])
-        self.post_local_list = self._create_script_list_page(self.conn.post_local_cmds if self.conn else [])
-        self.post_remote_list = self._create_script_list_page(self.conn.post_remote_cmds if self.conn else [])
-        self.remote_scripts_list = self._create_script_list_page(self.conn.remote_scripts if self.conn else [])
-        self.post_manual_local_list = self._create_manual_script_list_page(self.conn.post_manual_local_cmds if self.conn else {})
+        self.prepend_cmds_list = self._create_script_list_page(self.conn.prepend_cmds if self.conn else [])
+        self.stack.add_titled(self.prepend_cmds_list, "prepend_cmds", "Pre-Local")
 
-        self.stack.add_titled(self.pre_local_list, "pre_local", "Pre-Local")
-        self.stack.add_titled(self.post_local_list, "post_local", "Post-Local")
-        self.stack.add_titled(self.post_remote_list, "post_remote", "Post-Remote")
-        self.stack.add_titled(self.remote_scripts_list, "remote_scripts", "Remote Scripts")
-        self.stack.add_titled(self.post_manual_local_list, "post_manual_local", "Manual Scripts")
+        self._build_orchestrator_script_page()
+
+        self.local_cmds_list = self._create_cmds_list_page(self.conn.local_cmds if self.conn else {})
+        self.stack.add_titled(self.local_cmds_list, "local_cmds", "Local Commands")
+
+        self.remote_cmds_list = self._create_cmds_list_page(self.conn.remote_cmds if self.conn else {})
+        self.stack.add_titled(self.remote_cmds_list, "remote_cmds", "Remote Commands")
 
         return main_box
 
@@ -201,7 +200,7 @@ class ConnectionDialog(Adw.Window):
 
         remove_button = Gtk.Button(icon_name="list-remove-symbolic")
         remove_button.set_valign(Gtk.Align.CENTER)
-        remove_button.connect("clicked", self._on_remove_script_clicked, list_box, row)
+        remove_button.connect("clicked", self._on_remove_cmds_clicked, list_box, row)
         row_box.append(remove_button)
 
         row.set_child(row_box)
@@ -211,14 +210,14 @@ class ConnectionDialog(Adw.Window):
         drop_target.connect("drop", self._on_script_drop, list_box)
         row.add_controller(drop_target)
 
-    def _create_manual_script_list_page(self, commands: dict):
+    def _create_cmds_list_page(self, commands: dict):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
 
         list_box = Gtk.ListBox()
         list_box.set_selection_mode(Gtk.SelectionMode.NONE)
 
         for name, command in commands.items():
-            self._add_manual_script_row(list_box, name, command)
+            self._add_cmds_row(list_box, name, command)
 
         scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True, min_content_height=150)
         scrolled_window.set_child(list_box)
@@ -226,13 +225,13 @@ class ConnectionDialog(Adw.Window):
 
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         add_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_button.connect("clicked", lambda w: self._add_manual_script_row(list_box))
+        add_button.connect("clicked", lambda w: self._add_cmds_row(list_box))
         button_box.append(add_button)
         page_box.append(button_box)
 
         return page_box
 
-    def _add_manual_script_row(self, list_box, name="", command=""):
+    def _add_cmds_row(self, list_box, name="", command=""):
         row = Gtk.ListBoxRow()
         row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
 
@@ -252,7 +251,7 @@ class ConnectionDialog(Adw.Window):
 
         remove_button = Gtk.Button(icon_name="list-remove-symbolic")
         remove_button.set_valign(Gtk.Align.CENTER)
-        remove_button.connect("clicked", self._on_remove_script_clicked, list_box, row)
+        remove_button.connect("clicked", self._on_remove_cmds_clicked, list_box, row)
         row_box.append(remove_button)
 
         row.set_child(row_box)
@@ -262,7 +261,7 @@ class ConnectionDialog(Adw.Window):
         drop_target.connect("drop", self._on_script_drop, list_box)
         row.add_controller(drop_target)
 
-    def _on_remove_script_clicked(self, button, list_box, row):
+    def _on_remove_cmds_clicked(self, button, list_box, row):
         list_box.remove(row)
 
     def _on_script_drop(self, target, value, x, y, list_box):
@@ -332,6 +331,35 @@ class ConnectionDialog(Adw.Window):
     def _on_remove_option_clicked(self, button, box_to_remove):
         self.additional_options_box.remove(box_to_remove)
 
+    def _build_orchestrator_script_page(self):
+        page = Adw.PreferencesPage()
+        group = Adw.PreferencesGroup(title="Orchestrator Script")
+        page.add(group)
+
+        self.orchestrator_script_entry = Gtk.Entry(text=self.conn.orchestrator_script if self.conn and self.conn.orchestrator_script else "", hexpand=True)
+        browse_button = Gtk.Button(label="Browse…")
+        browse_button.connect("clicked", self.on_browse_orchestrator_script_file)
+
+        script_row = Adw.ActionRow(title="Script File")
+        script_row.add_suffix(self.orchestrator_script_entry)
+        script_row.add_suffix(browse_button)
+        group.add(script_row)
+
+        self.stack.add_titled(page, "orchestrator_script", "Orchestrator Script")
+
+    def on_browse_orchestrator_script_file(self, button):
+        file_dialog = Gtk.FileDialog.new()
+        file_dialog.set_title("Select Orchestrator Script File")
+        file_dialog.open(self, None, self.on_orchestrator_script_file_selected)
+
+    def on_orchestrator_script_file_selected(self, dialog, result):
+        try:
+            file = dialog.open_finish(result)
+            if file:
+                self.orchestrator_script_entry.set_text(file.get_path())
+        except GLib.Error:
+            pass
+
     def on_browse_identity_file(self, button):
         file_dialog = Gtk.FileDialog.new()
         file_dialog.set_title("Select Identity File")
@@ -363,7 +391,7 @@ class ConnectionDialog(Adw.Window):
 
             return [script for script in scripts if script]
 
-        def get_manual_scripts_from_list(page_box):
+        def get_cmds_from_list(page_box):
             scripts = {}
             list_box = page_box.get_first_child().get_child().get_child()
             idx = 0
@@ -393,11 +421,10 @@ class ConnectionDialog(Adw.Window):
             password=self.password.get_text() or None if self.use_sshpass.get_active() else None,
             identity_file=self.identity_file.get_text() or None,
             key_passphrase=self.key_passphrase.get_text() or None if self.use_sshpass.get_active() else None,
-            pre_local_cmds=get_scripts_from_list(self.pre_local_list),
-            post_local_cmds=get_scripts_from_list(self.post_local_list),
-            post_remote_cmds=get_scripts_from_list(self.post_remote_list),
-            remote_scripts=get_scripts_from_list(self.remote_scripts_list),
-            post_manual_local_cmds=get_manual_scripts_from_list(self.post_manual_local_list),
+            prepend_cmds=get_scripts_from_list(self.prepend_cmds_list),
+            local_cmds=get_cmds_from_list(self.local_cmds_list),
+            remote_cmds=get_cmds_from_list(self.remote_cmds_list),
+            orchestrator_script=self.orchestrator_script_entry.get_text() or None,
             ssh_forward_agent=self.ssh_forward_agent.get_active(),
             ssh_compression=self.ssh_compression.get_active(),
             ssh_x11_forwarding=self.ssh_x11_forwarding.get_active(),

@@ -9,5 +9,5 @@ import uuid
 class Cluster:
     name: str
     connection_uuids: List[str] = field(default_factory=list)
-    open_mode: str = "tabs"
+    open_mode: str = "split"
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
