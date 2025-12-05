@@ -23,6 +23,8 @@ import pulse_ssh.Utils as utils
 import pulse_ssh.data.Connection as connection
 import pulse_ssh.data.HistoryEntry as history_entry
 import pulse_ssh.gui.VteTerminal as vte_terminal
+import pulse_ssh.gui.managers.LayoutManager as layout_manager
+import pulse_ssh.gui.managers.ShortcutManager as shortcut_manager
 import pulse_ssh.gui.views.ClustersView as clusters_view
 import pulse_ssh.gui.views.ConnectionsView as connections_view
 import pulse_ssh.gui.views.HistoryView as history_view
@@ -33,6 +35,8 @@ class MainWindow(Gtk.ApplicationWindow):
         super().__init__(application=app, title="PulseSSH")
 
         self.cache_config = utils.load_cache_config(globals.config_dir)
+        self.layout_manager = layout_manager.LayoutManager(self)
+        self.shortcut_manager = shortcut_manager.ShortcutManager(self)
 
         icon_dir = os.path.join(utils.project_root, 'res', 'icons', 'hicolor', '512x512', 'apps')
         icon_name = "pulse_ssh"
@@ -142,7 +146,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.toast_overlay.set_child(toolbar_view)
         self.set_child(self.toast_overlay)
 
-        self._setup_shortcuts_for_window(self)
+        self.shortcut_manager._setup_shortcuts_for_window(self)
 
         self.connections_view.list_view.grab_focus()
 
@@ -173,7 +177,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         globals.all_notebooks.append(notebook)
 
-        self._setup_shortcuts_for_window(win)
+        self.shortcut_manager._setup_shortcuts_for_window(win)
 
         win.connect("close-request", lambda w: self.on_sub_window_close_request(win, notebook))
 
@@ -292,271 +296,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
         return True
 
-    def _setup_shortcuts_for_window(self, window: Adw.ApplicationWindow):
-        shortcut_controller = Gtk.ShortcutController()
-        shortcut_controller.set_scope(Gtk.ShortcutScope.GLOBAL)
-        shortcut_controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
-        window.add_controller(shortcut_controller)
-        window.add_controller(self._create_fullscreen_controller(window))
-
-        search_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Control>f"),
-            Gtk.CallbackAction.new(self._on_search_shortcut, window)
-        )
-        shortcut_controller.add_shortcut(search_shortcut)
-
-        duplicate_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Control><Shift>d"),
-            Gtk.CallbackAction.new(self._on_duplicate_shortcut)
-        )
-        shortcut_controller.add_shortcut(duplicate_shortcut)
-
-        next_tab_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Shift>Right"),
-            Gtk.CallbackAction.new(self._on_next_tab_shortcut, window)
-        )
-        shortcut_controller.add_shortcut(next_tab_shortcut)
-
-        previous_tab_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Shift>Left"),
-            Gtk.CallbackAction.new(self._on_previous_tab_shortcut, window)
-        )
-        shortcut_controller.add_shortcut(previous_tab_shortcut)
-
-        new_tab_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Control><Shift>t"),
-            Gtk.CallbackAction.new(self._on_new_tab_shortcut, window)
-        )
-        shortcut_controller.add_shortcut(new_tab_shortcut)
-
-        close_tab_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Control><Shift>w"),
-            Gtk.CallbackAction.new(self._on_close_tab_shortcut, window)
-        )
-        shortcut_controller.add_shortcut(close_tab_shortcut)
-
-        split_h_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Control><Shift>h"),
-            Gtk.CallbackAction.new(self._on_split_h_shortcut, window)
-        )
-        shortcut_controller.add_shortcut(split_h_shortcut)
-
-        split_v_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Control><Shift>b"),
-            Gtk.CallbackAction.new(self._on_split_v_shortcut, window)
-        )
-        shortcut_controller.add_shortcut(split_v_shortcut)
-
-        zoom_in_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Control>plus"),
-            Gtk.CallbackAction.new(self._on_zoom_in_shortcut, window)
-        )
-        shortcut_controller.add_shortcut(zoom_in_shortcut)
-
-        zoom_out_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Control>minus"),
-            Gtk.CallbackAction.new(self._on_zoom_out_shortcut, window)
-        )
-        shortcut_controller.add_shortcut(zoom_out_shortcut)
-
-        zoom_reset_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Control>0"),
-            Gtk.CallbackAction.new(self._on_zoom_reset_shortcut, window)
-        )
-        shortcut_controller.add_shortcut(zoom_reset_shortcut)
-
-        copy_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Control><Shift>c"),
-            Gtk.CallbackAction.new(self._on_copy_shortcut, window)
-        )
-        shortcut_controller.add_shortcut(copy_shortcut)
-
-        paste_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Control><Shift>v"),
-            Gtk.CallbackAction.new(self._on_paste_shortcut, window)
-        )
-        shortcut_controller.add_shortcut(paste_shortcut)
-
-        edit_shortcut = Gtk.Shortcut.new(
-            Gtk.ShortcutTrigger.parse_string("<Alt>e"),
-            Gtk.CallbackAction.new(self._on_edit_shortcut)
-        )
-        shortcut_controller.add_shortcut(edit_shortcut)
-
-    def _create_fullscreen_controller(self, window: Adw.ApplicationWindow):
-        controller = Gtk.ShortcutController()
-        controller.set_scope(Gtk.ShortcutScope.MANAGED)
-        shortcut = Gtk.Shortcut.new(
-            trigger=Gtk.ShortcutTrigger.parse_string("F11"),
-            action=Gtk.NamedAction.new(f"win.toggle-fullscreen-{id(window)}")
-        )
-        controller.add_shortcut(shortcut)
-
-        def toggle_fullscreen(action, parameter, window):
-            if window.is_fullscreen():
-                window.unfullscreen()
-            else:
-                window.fullscreen()
-
-        action = Gio.SimpleAction.new(f"toggle-fullscreen-{id(window)}", None)
-        action.connect("activate", toggle_fullscreen, window)
-        window.add_action(action)
-        return controller
-
-    def _on_new_tab_shortcut(self, widget, *args):
-        focused_widget = widget.get_focus()
-        if not focused_widget:
-            return True
-
-        notebook = focused_widget.get_ancestor(Adw.TabView)
-        if not notebook:
-            return True
-
-        terminal = self.create_terminal(utils.local_connection)
-
-        boxy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        boxy.append(terminal)
-        page = notebook.append(boxy)
-        notebook.set_selected_page(page)
-        self.updatePageTitle(page)
-        return True
-
-    def _on_close_tab_shortcut(self, widget, *args):
-        focused_widget = widget.get_focus()
-        if not focused_widget:
-            return True
-
-        notebook = focused_widget.get_ancestor(Adw.TabView)
-        if not notebook:
-            return True
-
-        page = notebook.get_selected_page()
-        if page:
-            notebook.close_page(page)
-        return True
-
-    def _on_split_h_shortcut(self, widget, *args):
-        self._split_focused_terminal(widget, Gtk.Orientation.HORIZONTAL)
-        return True
-
-    def _on_split_v_shortcut(self, widget, *args):
-        self._split_focused_terminal(widget, Gtk.Orientation.VERTICAL)
-        return True
-
-    def _on_search_shortcut(self, *args):
-        if self.panel_stack.get_visible_child_name() == "connections":
-            self.connections_view.filter_header_bar.set_visible(True)
-            self.connections_view.filter_entry.grab_focus()
-            self.connections_view.filter_entry.select_region(0, -1)
-        elif self.panel_stack.get_visible_child_name() == "clusters":
-            self.clusters_view.filter_header_bar.set_visible(True)
-            self.clusters_view.filter_entry.grab_focus()
-            self.clusters_view.filter_entry.select_region(0, -1)
-        elif self.panel_stack.get_visible_child_name() == "history":
-            self.history_view.filter_header_bar.set_visible(True)
-            self.history_view.filter_entry.grab_focus()
-            self.history_view.filter_entry.select_region(0, -1)
-        return True
-
-    def _on_edit_shortcut(self, *args):
-        active_view = self.panel_stack.get_visible_child_name()
-        if active_view == "connections":
-            self.connections_view.edit_selected_entry()
-        elif active_view == "clusters":
-            self.clusters_view.edit_selected_entry()
-        return True
-
-    def _on_duplicate_shortcut(self, widget, *args):
-        focused_widget = widget.get_focus()
-        if isinstance(focused_widget, vte_terminal.VteTerminal) and hasattr(focused_widget, 'pulse_conn'):
-            self.open_connection_tab(focused_widget.pulse_conn)
-        return True
-
-    def _on_next_tab_shortcut(self, widget, *args):
-        focused_widget = widget.get_focus()
-        if not focused_widget:
-            return True
-
-        notebook = focused_widget.get_ancestor(Adw.TabView)
-        if not notebook:
-            return True
-
-        n_pages = notebook.get_n_pages()
-        if n_pages < 2:
-            return True
-
-        selected_page = notebook.get_selected_page()
-        current_pos = notebook.get_page_position(selected_page)
-        next_pos = (current_pos + 1) % n_pages
-        notebook.set_selected_page(notebook.get_nth_page(next_pos))
-        return True
-
-    def _on_previous_tab_shortcut(self, widget, *args):
-        focused_widget = widget.get_focus()
-        if not focused_widget:
-            return True
-
-        notebook = focused_widget.get_ancestor(Adw.TabView)
-        if not notebook:
-            return True
-
-        n_pages = notebook.get_n_pages()
-        if n_pages < 2:
-            return True
-
-        selected_page = notebook.get_selected_page()
-        current_pos = notebook.get_page_position(selected_page)
-        prev_pos = (current_pos - 1 + n_pages) % n_pages
-        notebook.set_selected_page(notebook.get_nth_page(prev_pos))
-        return True
-
-    def _on_copy_shortcut(self, widget, *args):
-        focused_widget = widget.get_focus()
-        if isinstance(focused_widget, vte_terminal.VteTerminal):
-            focused_widget.copy_clipboard_format(Vte.Format.TEXT)
-        return True
-
-    def _on_paste_shortcut(self, widget, *args):
-        focused_widget = widget.get_focus()
-        if isinstance(focused_widget, vte_terminal.VteTerminal):
-            focused_widget.paste_clipboard()
-        return True
-
-    def _on_zoom_in_shortcut(self, widget, *args):
-        focused_widget = widget.get_focus()
-        if isinstance(focused_widget, vte_terminal.VteTerminal):
-            newscale = focused_widget.get_font_scale() + 0.1
-            cluster_id = focused_widget.pulse_cluster_id
-            if cluster_id and cluster_id in globals.active_clusters:
-                for terminal in globals.active_clusters[cluster_id]:
-                    terminal.set_font_scale(newscale)
-            else:
-                focused_widget.set_font_scale(newscale)
-        return True
-
-    def _on_zoom_out_shortcut(self, widget, *args):
-        focused_widget = widget.get_focus()
-        if isinstance(focused_widget, vte_terminal.VteTerminal):
-            newscale = focused_widget.get_font_scale() - 0.1
-            cluster_id = focused_widget.pulse_cluster_id
-            if cluster_id and cluster_id in globals.active_clusters:
-                for terminal in globals.active_clusters[cluster_id]:
-                    terminal.set_font_scale(newscale)
-            else:
-                focused_widget.set_font_scale(newscale)
-        return True
-
-    def _on_zoom_reset_shortcut(self, widget, *args):
-        focused_widget = widget.get_focus()
-        if isinstance(focused_widget, vte_terminal.VteTerminal):
-            cluster_id = focused_widget.pulse_cluster_id
-            if cluster_id and cluster_id in globals.active_clusters:
-                for terminal in globals.active_clusters[cluster_id]:
-                    terminal.set_font_scale(1.0)
-            else:
-                focused_widget.set_font_scale(1.0)
-        return True
-
     def _on_tab_switched(self, notebook, param):
         page = notebook.get_selected_page()
         if not page:
@@ -572,19 +311,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
         terminal = self._find_first_terminal_in_widget(content)
         self.connections_view.select_connection_from_terminal(terminal)
-
-    def _split_focused_terminal(self, window, orientation):
-        terminal = window.get_focus()
-        if isinstance(terminal, vte_terminal.VteTerminal):
-            notebook, page = terminal.get_ancestor_page()
-            if not notebook or not page:
-                self.show_error_dialog(
-                    "Internal UI Error",
-                    "Could not find the parent tab for the disconnected terminal. The tab's status indicator may not update correctly."
-                )
-                return
-            self.split_terminal_or_tab(None, None, terminal, page, orientation, None, None)
-        return True
 
     def open_all_connections_in_tabs(self, action, param, conns_to_start: Optional[List[connection.Connection]], clustered=False, cluster_name=None):
         if not conns_to_start:
@@ -669,7 +395,18 @@ class MainWindow(Gtk.ApplicationWindow):
             paned.set_start_child(build_grid(start_items, is_vertical, total_items))
             paned.set_end_child(build_grid(end_items, is_vertical, total_items))
 
-            GLib.idle_add(self._set_paned_position, paned, len(start_items), len(items), is_vertical)
+            def _set_paned_position(paned: Gtk.Paned, start_items_len: int, items_len: int, is_vertical: bool):
+                if is_vertical:
+                    allocated_size = paned.get_allocated_height()
+                    if allocated_size > 0:
+                        paned.set_position(allocated_size * start_items_len // items_len)
+                else:
+                    allocated_size = paned.get_allocated_width()
+                    if allocated_size > 0:
+                        paned.set_position(allocated_size * start_items_len // items_len)
+                return GLib.SOURCE_REMOVE
+
+            GLib.idle_add(_set_paned_position, paned, len(start_items), len(items), is_vertical)
             return paned
 
         def do_open(cluster_id=None):
@@ -696,17 +433,6 @@ class MainWindow(Gtk.ApplicationWindow):
                 self._ask_for_cluster_name(do_open)
                 return
         do_open()
-
-    def _set_paned_position(self, paned: Gtk.Paned, start_items_len: int, items_len: int, is_vertical: bool):
-        if is_vertical:
-            allocated_size = paned.get_allocated_height()
-            if allocated_size > 0:
-                paned.set_position(allocated_size * start_items_len // items_len)
-        else:
-            allocated_size = paned.get_allocated_width()
-            if allocated_size > 0:
-                paned.set_position(allocated_size * start_items_len // items_len)
-        return GLib.SOURCE_REMOVE
 
     def open_connection_tab(self, conn: connection.Connection, cluster_id: Optional[str] = None):
         terminal = self.create_terminal(conn, cluster_id)
@@ -891,172 +617,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
         return terminals
 
-    def build_paned_widget(self, orientation, source_content: Gtk.Widget, target_content: Gtk.Widget) -> Gtk.Paned:
-        paned = Gtk.Paned(orientation=orientation, wide_handle=False)
-        paned.set_start_child(source_content)
-        paned.set_end_child(target_content)
-
-        def set_paned_position(p):
-            if p.get_orientation() == Gtk.Orientation.HORIZONTAL:
-                p.set_position(p.get_allocated_width() // 2)
-            else:
-                p.set_position(p.get_allocated_height() // 2)
-            return GLib.SOURCE_REMOVE
-
-        paned.connect_after("map", lambda p: GLib.idle_add(set_paned_position, p))
-
-        return paned
-
-    def split_terminal_or_tab(self, action, param, terminal, source_page, orientation, target_page, target_notebook):
-        if globals.appy_config.split_at_root or not terminal:
-            self.split_tab(terminal, source_page, orientation, target_page, target_notebook)
-        else:
-            self.split_terminal(terminal, source_page, orientation, target_page, target_notebook)
-        self.updatePageTitle(source_page)
-
-    def split_tab(self, terminal, source_page, orientation, target_page, target_notebook):
-        source_container = source_page.get_child()
-        source_content = source_container.get_first_child()
-        source_content.unparent()
-
-        if not target_page:
-            if not terminal:
-                return
-            if not hasattr(terminal, 'pulse_conn'):
-                return
-            target_content = self.create_terminal(terminal.pulse_conn)
-        else:
-            target_container = target_page.get_child()
-            target_content = target_container.get_first_child()
-            target_content.unparent()
-            target_notebook.close_page(target_page)
-
-        paned = self.build_paned_widget(orientation, source_content, target_content)
-
-        source_container.append(paned)
-
-    def split_terminal(self, terminal, source_page, orientation, target_page, target_notebook):
-        source_scrolled_window = terminal.get_parent()
-        parent = source_scrolled_window.get_parent()
-        if not parent:
-            return
-
-        if isinstance(parent, Gtk.Box):
-            self.split_tab(terminal, source_page, orientation, target_page, target_notebook)
-        elif isinstance(parent, Gtk.Paned):
-            is_start_child = parent.get_start_child() == source_scrolled_window
-            source_scrolled_window.unparent()
-            if is_start_child:
-                parent.set_start_child(None)
-            else:
-                parent.set_end_child(None)
-
-            if not target_page:
-                if not hasattr(terminal, 'pulse_conn'):
-                    return
-                target_content = self.create_terminal(terminal.pulse_conn)
-            else:
-                target_container = target_page.get_child()
-                target_content = target_container.get_first_child()
-                target_content.unparent()
-                target_notebook.close_page(target_page)
-
-            paned = self.build_paned_widget(orientation, source_scrolled_window, target_content)
-
-            if is_start_child:
-                parent.set_start_child(paned)
-            else:
-                parent.set_end_child(paned)
-
-    def unsplit_terminal(self, action, param, terminal, source_page, source_notebook):
-        source_scrolled_window = terminal.get_parent()
-        parent = source_scrolled_window.get_parent()
-        if not parent:
-            return
-
-        if isinstance(parent, Gtk.Paned):
-            if parent.get_start_child() == source_scrolled_window:
-                sibling = parent.get_end_child()
-            else:
-                sibling = parent.get_start_child()
-
-            sibling.unparent()
-
-            parent.set_start_child(None)
-            parent.set_end_child(None)
-
-            boxy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            boxy.append(source_scrolled_window)
-            page = source_notebook.append(boxy)
-            self.updatePageTitle(page)
-
-            grandparent = parent.get_parent()
-            if not grandparent:
-                return
-
-            if isinstance(grandparent, Gtk.Box):
-                parent.unparent()
-                grandparent.append(sibling)
-
-            if isinstance(grandparent, Gtk.Paned):
-                if grandparent.get_start_child() == parent:
-                    grandparent.set_start_child(sibling)
-                else:
-                    grandparent.set_end_child(sibling)
-
-            if sibling:
-                term = self._find_first_terminal_in_widget(sibling)
-                if term:
-                    term.grab_focus()
-
-            self.updatePageTitle(source_page)
-
-    def close_terminal(self, action, param, terminal, page, notebook):
-        self._leave_cluster(terminal)
-        source_scrolled_window = terminal.get_parent()
-        parent = source_scrolled_window.get_parent()
-        if not parent:
-            return
-
-        if isinstance(parent, Gtk.Box):
-            notebook.close_page(page)
-            if notebook != globals.all_notebooks[0] and notebook.get_n_pages() == 0:
-                window_to_close = notebook.get_ancestor(Gtk.ApplicationWindow)
-                if window_to_close: window_to_close.close()
-            return
-
-        if isinstance(parent, Gtk.Paned):
-            if parent.get_start_child() == source_scrolled_window:
-                sibling = parent.get_end_child()
-            else:
-                sibling = parent.get_start_child()
-
-            sibling.unparent()
-
-            parent.set_start_child(None)
-            parent.set_end_child(None)
-
-            grandparent = parent.get_parent()
-            if not grandparent:
-                return
-
-            if isinstance(grandparent, Gtk.Box):
-                parent.unparent()
-                grandparent.append(sibling)
-
-            if isinstance(grandparent, Gtk.Paned):
-                if grandparent.get_start_child() == parent:
-                    grandparent.set_start_child(sibling)
-                else:
-                    grandparent.set_end_child(sibling)
-
-            if sibling:
-                term = self._find_first_terminal_in_widget(sibling)
-                if term:
-                    term.grab_focus()
-
-            self.updatePageTitle(page)
-
     def updatePageTitle(self, page: Adw.TabPage):
         if not page:
             return
@@ -1133,14 +693,14 @@ class MainWindow(Gtk.ApplicationWindow):
                     return True
                 if keyval == Gdk.KEY_Escape:
                     terminal.remove_controller(evk)
-                    self.close_terminal(None, None, terminal, page, notebook)
+                    self.layout_manager.close_terminal(None, None, terminal, page, notebook)
                     return True
                 return False
             evk.connect("key-pressed", on_key_pressed)
             terminal.add_controller(evk)
 
         if behavior == "close":
-            self.close_terminal(None, None, terminal, page, notebook)
+            self.layout_manager.close_terminal(None, None, terminal, page, notebook)
         elif behavior == "restart":
             connect_duration = GLib.get_monotonic_time() - terminal.connect_time
             if connect_duration < 5 * 1_000_000:

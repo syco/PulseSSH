@@ -1,0 +1,184 @@
+#!/usr/bin/env python
+
+import gi
+gi.require_version('Gtk', '4.0')
+
+from gi.repository import GLib  # type: ignore
+from gi.repository import Gtk  # type: ignore
+import pulse_ssh.Globals as globals
+
+class LayoutManager:
+    def __init__(self, app_window):
+        self.app_window = app_window
+
+    def build_paned_widget(self, orientation, source_content: Gtk.Widget, target_content: Gtk.Widget) -> Gtk.Paned:
+        paned = Gtk.Paned(orientation=orientation, wide_handle=False)
+        paned.set_start_child(source_content)
+        paned.set_end_child(target_content)
+
+        def set_initial_position(p):
+            if p.get_orientation() == Gtk.Orientation.HORIZONTAL:
+                width = p.get_allocated_width()
+                if width > 0:
+                    p.set_position(width // 2)
+                    return GLib.SOURCE_REMOVE
+            else:
+                height = p.get_allocated_height()
+                if height > 0:
+                    p.set_position(height // 2)
+                    return GLib.SOURCE_REMOVE
+            return GLib.SOURCE_CONTINUE
+
+        paned.connect_after("map", lambda p: GLib.idle_add(set_initial_position, p))
+
+        return paned
+
+    def split_terminal_or_tab(self, action, param, terminal, source_page, orientation, target_page, target_notebook):
+        if globals.appy_config.split_at_root or not terminal:
+            self.split_tab(terminal, source_page, orientation, target_page, target_notebook)
+        else:
+            self.split_terminal(terminal, source_page, orientation, target_page, target_notebook)
+        self.app_window.updatePageTitle(source_page)
+
+    def split_tab(self, terminal, source_page, orientation, target_page, target_notebook):
+        source_container = source_page.get_child()
+        source_content = source_container.get_first_child()
+        source_content.unparent()
+
+        if not target_page:
+            if not terminal:
+                return
+            if not hasattr(terminal, 'pulse_conn'):
+                return
+            target_content = self.app_window.create_terminal(terminal.pulse_conn)
+        else:
+            target_container = target_page.get_child()
+            target_content = target_container.get_first_child()
+            target_content.unparent()
+            target_notebook.close_page(target_page)
+
+        paned = self.build_paned_widget(orientation, source_content, target_content)
+
+        source_container.append(paned)
+
+    def split_terminal(self, terminal, source_page, orientation, target_page, target_notebook):
+        source_scrolled_window = terminal.get_parent()
+        parent = source_scrolled_window.get_parent()
+        if not parent:
+            return
+
+        if isinstance(parent, Gtk.Box):
+            self.split_tab(terminal, source_page, orientation, target_page, target_notebook)
+        elif isinstance(parent, Gtk.Paned):
+            is_start_child = parent.get_start_child() == source_scrolled_window
+            source_scrolled_window.unparent()
+            if is_start_child:
+                parent.set_start_child(None)
+            else:
+                parent.set_end_child(None)
+
+            if not target_page:
+                if not hasattr(terminal, 'pulse_conn'):
+                    return
+                target_content = self.app_window.create_terminal(terminal.pulse_conn)
+            else:
+                target_container = target_page.get_child()
+                target_content = target_container.get_first_child()
+                target_content.unparent()
+                target_notebook.close_page(target_page)
+
+            paned = self.build_paned_widget(orientation, source_scrolled_window, target_content)
+
+            if is_start_child:
+                parent.set_start_child(paned)
+            else:
+                parent.set_end_child(paned)
+
+    def unsplit_terminal(self, action, param, terminal, source_page, source_notebook):
+        source_scrolled_window = terminal.get_parent()
+        parent = source_scrolled_window.get_parent()
+        if not parent:
+            return
+
+        if isinstance(parent, Gtk.Paned):
+            if parent.get_start_child() == source_scrolled_window:
+                sibling = parent.get_end_child()
+            else:
+                sibling = parent.get_start_child()
+
+            sibling.unparent()
+
+            parent.set_start_child(None)
+            parent.set_end_child(None)
+
+            boxy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            boxy.append(source_scrolled_window)
+            page = source_notebook.append(boxy)
+            self.app_window.updatePageTitle(page)
+
+            grandparent = parent.get_parent()
+            if not grandparent:
+                return
+
+            if isinstance(grandparent, Gtk.Box):
+                parent.unparent()
+                grandparent.append(sibling)
+
+            if isinstance(grandparent, Gtk.Paned):
+                if grandparent.get_start_child() == parent:
+                    grandparent.set_start_child(sibling)
+                else:
+                    grandparent.set_end_child(sibling)
+
+            if sibling:
+                term = self.app_window._find_first_terminal_in_widget(sibling)
+                if term:
+                    term.grab_focus()
+
+            self.app_window.updatePageTitle(source_page)
+
+    def close_terminal(self, action, param, terminal, page, notebook):
+        self.app_window._leave_cluster(terminal)
+        source_scrolled_window = terminal.get_parent()
+        parent = source_scrolled_window.get_parent()
+        if not parent:
+            return
+
+        if isinstance(parent, Gtk.Box):
+            notebook.close_page(page)
+            if notebook != globals.all_notebooks[0] and notebook.get_n_pages() == 0:
+                window_to_close = notebook.get_ancestor(Gtk.ApplicationWindow)
+                if window_to_close: window_to_close.close()
+            return
+
+        if isinstance(parent, Gtk.Paned):
+            if parent.get_start_child() == source_scrolled_window:
+                sibling = parent.get_end_child()
+            else:
+                sibling = parent.get_start_child()
+
+            sibling.unparent()
+
+            parent.set_start_child(None)
+            parent.set_end_child(None)
+
+            grandparent = parent.get_parent()
+            if not grandparent:
+                return
+
+            if isinstance(grandparent, Gtk.Box):
+                parent.unparent()
+                grandparent.append(sibling)
+
+            if isinstance(grandparent, Gtk.Paned):
+                if grandparent.get_start_child() == parent:
+                    grandparent.set_start_child(sibling)
+                else:
+                    grandparent.set_end_child(sibling)
+
+            if sibling:
+                term = self.app_window._find_first_terminal_in_widget(sibling)
+                if term:
+                    term.grab_focus()
+
+            self.app_window.updatePageTitle(page)

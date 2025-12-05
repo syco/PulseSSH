@@ -105,7 +105,7 @@ class VteTerminal(Vte.Terminal):
         self.cluster_key_controller = Gtk.EventControllerKey()
 
         if cluster_id:
-            self.app_window._join_cluster(self, cluster_id)
+            self.app_window.cluster_manager.join_cluster(self, cluster_id)
 
         self.connected = True
 
@@ -113,8 +113,8 @@ class VteTerminal(Vte.Terminal):
         submenu = Gio.Menu()
 
         action_name = f"split_new_{'h' if orientation == Gtk.Orientation.HORIZONTAL else 'v'}"
-        split_new_action = Gio.SimpleAction.new(action_name, None)
-        split_new_action.connect("activate", self.app_window.split_terminal_or_tab, self, source_page, orientation, None, None)
+        split_new_action = Gio.SimpleAction.new(action_name, None) #
+        split_new_action.connect("activate", self.app_window.layout_manager.split_terminal_or_tab, self, source_page, orientation, None, None)
         action_group.add_action(split_new_action)
         submenu.append("New Terminal (Same Host)", f"term.{action_name}")
         submenu.append_section(None, Gio.Menu())
@@ -127,7 +127,7 @@ class VteTerminal(Vte.Terminal):
 
                 action_name = f"split_tab_{target_page_idx}_{'h' if orientation == Gtk.Orientation.HORIZONTAL else 'v'}"
                 split_tab_action = Gio.SimpleAction.new(action_name, None)
-                split_tab_action.connect("activate", self.app_window.split_terminal_or_tab, self, source_page, orientation, target_page, target_notebook)
+                split_tab_action.connect("activate", self.app_window.layout_manager.split_terminal_or_tab, self, source_page, orientation, target_page, target_notebook)
                 action_group.add_action(split_tab_action)
                 submenu.append(f"Tab: {label_text}", f"term.{action_name}")
 
@@ -171,7 +171,7 @@ class VteTerminal(Vte.Terminal):
         parent = self.get_parent().get_parent()
         if isinstance(parent, Gtk.Paned):
             unsplit_action = Gio.SimpleAction.new("unsplit", None)
-            unsplit_action.connect("activate", self.app_window.unsplit_terminal, self, page, notebook)
+            unsplit_action.connect("activate", self.app_window.layout_manager.unsplit_terminal, self, page, notebook)
             action_group.add_action(unsplit_action)
             menu_model.append("Move to tab", "term.unsplit")
 
@@ -196,7 +196,7 @@ class VteTerminal(Vte.Terminal):
         menu_model.append_section(None, Gio.Menu())
 
         close_action = Gio.SimpleAction.new("close", None)
-        close_action.connect("activate", self.app_window.close_terminal, self, page, notebook)
+        close_action.connect("activate", self.app_window.layout_manager.close_terminal, self, page, notebook)
         action_group.add_action(close_action)
         menu_model.append("Close", "term.close")
 
