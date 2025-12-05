@@ -30,7 +30,7 @@ class ClusterDialog(Adw.Window):
     def __init__(self, parent, connections: Dict[str, connection.Connection], cluster: Optional[cluster.Cluster] = None):
         super().__init__(title="Cluster Configuration", transient_for=parent, modal=True)
         self.cluster = cluster
-        self.connections = connections
+        globals.connections = connections
 
         cancel_button = Gtk.Button.new_with_mnemonic("_Cancel")
         cancel_button.connect("clicked", lambda w: self.emit("response", Gtk.ResponseType.CANCEL))
@@ -90,12 +90,12 @@ class ClusterDialog(Adw.Window):
         connections_group = Adw.PreferencesGroup(title="Connections")
         page.add(connections_group)
 
-        self.connections_store = Gio.ListStore(item_type=ConnectionCheckListItem)
+        globals.connections_store = Gio.ListStore(item_type=ConnectionCheckListItem)
         checked_uuids = self.cluster.connection_uuids if self.cluster else []
-        for conn in sorted(self.connections.values(), key=utils.connectionsSortFunction):
+        for conn in sorted(globals.connections.values(), key=utils.connectionsSortFunction):
             check_button = Gtk.CheckButton(valign=Gtk.Align.CENTER)
             check_button.set_active(conn.uuid in checked_uuids)
-            self.connections_store.append(ConnectionCheckListItem(conn, check_button))
+            globals.connections_store.append(ConnectionCheckListItem(conn, check_button))
 
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self.setup_list_item)
@@ -106,7 +106,7 @@ class ClusterDialog(Adw.Window):
         self.filter_entry.connect("activate", self.filter_entry_activated_callback)
 
         self.filter = Gtk.CustomFilter.new(self.filter_list_function)
-        self.filtered_model = Gtk.FilterListModel(model=self.connections_store, filter=self.filter)
+        self.filtered_model = Gtk.FilterListModel(model=globals.connections_store, filter=self.filter)
         self.selection_model = Gtk.NoSelection(model=self.filtered_model)
 
         self.list_view = Gtk.ListView(model=self.selection_model, factory=factory)
@@ -196,8 +196,8 @@ class ClusterDialog(Adw.Window):
 
     def get_data(self) -> cluster.Cluster:
         selected_uuids = []
-        for i in range(self.connections_store.get_n_items()):
-            item = self.connections_store.get_item(i)
+        for i in range(globals.connections_store.get_n_items()):
+            item = globals.connections_store.get_item(i)
             if item.check_button.get_active():
                 selected_uuids.append(item.connection.uuid)
 

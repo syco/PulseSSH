@@ -18,6 +18,7 @@ from typing import List
 from typing import Optional
 import math
 import os
+import pulse_ssh.Globals as globals
 import pulse_ssh.Utils as utils
 import pulse_ssh.data.Connection as connection
 import pulse_ssh.data.HistoryEntry as history_entry
@@ -28,17 +29,10 @@ import pulse_ssh.gui.views.HistoryView as history_view
 import uuid
 
 class MainWindow(Gtk.ApplicationWindow):
-    def __init__(self, app, config_dir: str, readonly: bool = False, about_info: Dict = {}):
+    def __init__(self, app):
         super().__init__(application=app, title="PulseSSH")
 
-        self.config_dir = config_dir
-        self.readonly = readonly
-        self.about_info = about_info
-        self.active_clusters: Dict[str, List[vte_terminal.VteTerminal]] = {}
-        self.command_history: Dict[str, List[history_entry.HistoryEntry]] = {}
-        self.app_config, self.connections, self.clusters = utils.load_app_config(self.config_dir)
-        self.cache_config = utils.load_cache_config(self.config_dir)
-        self.all_notebooks: List[Adw.TabView] = []
+        self.cache_config = utils.load_cache_config(globals.config_dir)
 
         icon_dir = os.path.join(utils.project_root, 'res', 'icons', 'hicolor', '512x512', 'apps')
         icon_name = "pulse_ssh"
@@ -83,8 +77,8 @@ class MainWindow(Gtk.ApplicationWindow):
             "force-light": Adw.ColorScheme.FORCE_LIGHT,
             "force-dark": Adw.ColorScheme.FORCE_DARK,
         }
-        Adw.StyleManager.get_default().set_color_scheme(color_scheme_map.get(self.app_config.color_scheme, Adw.ColorScheme.DEFAULT))
-        self.split_view.set_sidebar_position(Gtk.PositionType.RIGHT if self.app_config.sidebar_on_right else Gtk.PositionType.LEFT)
+        Adw.StyleManager.get_default().set_color_scheme(color_scheme_map.get(globals.appy_config.color_scheme, Adw.ColorScheme.DEFAULT))
+        self.split_view.set_sidebar_position(Gtk.PositionType.RIGHT if globals.appy_config.sidebar_on_right else Gtk.PositionType.LEFT)
 
     def _build_ui(self):
         self.connect("close-request", self.on_app_close_request)
@@ -123,7 +117,7 @@ class MainWindow(Gtk.ApplicationWindow):
         notebook.connect("notify::selected-page", self._on_tab_switched)
         notebook.connect("create-window", self._on_create_window)
 
-        self.all_notebooks.append(notebook)
+        globals.all_notebooks.append(notebook)
 
         tab_bar = Adw.TabBar(autohide=False, expand_tabs=False, view=notebook)
 
@@ -139,7 +133,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.split_view.set_min_sidebar_width(200)
         self.split_view.set_max_sidebar_width(400)
         self.split_view.set_sidebar_width_fraction(0.2)
-        self.split_view.set_sidebar_position(Gtk.PositionType.RIGHT if self.app_config.sidebar_on_right else Gtk.PositionType.LEFT)
+        self.split_view.set_sidebar_position(Gtk.PositionType.RIGHT if globals.appy_config.sidebar_on_right else Gtk.PositionType.LEFT)
         self.split_view.set_vexpand(True)
 
         toolbar_view = Adw.ToolbarView(content=self.split_view)
@@ -177,7 +171,7 @@ class MainWindow(Gtk.ApplicationWindow):
         win.set_default_size(800, 600)
         win.present()
 
-        self.all_notebooks.append(notebook)
+        globals.all_notebooks.append(notebook)
 
         self._setup_shortcuts_for_window(win)
 
@@ -191,11 +185,11 @@ class MainWindow(Gtk.ApplicationWindow):
             self.cache_config.window_height = self.get_height()
 
         self.cache_config.window_maximized = self.is_maximized()
-        utils.save_cache_config(self.config_dir, self.readonly, self.cache_config)
+        utils.save_cache_config(globals.config_dir, globals.readonly, self.cache_config)
 
     def on_app_close_request(self, window):
         all_terminals = []
-        for notebook in self.all_notebooks:
+        for notebook in globals.all_notebooks:
             all_terminals.extend(self._find_all_terminals_in_widget(notebook))
 
         is_active = any(t.connected for t in all_terminals)
@@ -232,14 +226,14 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def on_sub_window_close_request(self, window, notebook):
         if window._force_quit:
-            self.all_notebooks.remove(notebook)
+            globals.all_notebooks.remove(notebook)
             return False
 
         terminals = self._find_all_terminals_in_widget(notebook)
         is_active = any(t.connected for t in terminals)
 
         if not is_active:
-            self.all_notebooks.remove(notebook)
+            globals.all_notebooks.remove(notebook)
             return False
 
         dialog = Adw.MessageDialog(
@@ -533,8 +527,8 @@ class MainWindow(Gtk.ApplicationWindow):
         if isinstance(focused_widget, vte_terminal.VteTerminal):
             newscale = focused_widget.get_font_scale() + 0.1
             cluster_id = focused_widget.pulse_cluster_id
-            if cluster_id and cluster_id in self.active_clusters:
-                for terminal in self.active_clusters[cluster_id]:
+            if cluster_id and cluster_id in globals.active_clusters:
+                for terminal in globals.active_clusters[cluster_id]:
                     terminal.set_font_scale(newscale)
             else:
                 focused_widget.set_font_scale(newscale)
@@ -545,8 +539,8 @@ class MainWindow(Gtk.ApplicationWindow):
         if isinstance(focused_widget, vte_terminal.VteTerminal):
             newscale = focused_widget.get_font_scale() - 0.1
             cluster_id = focused_widget.pulse_cluster_id
-            if cluster_id and cluster_id in self.active_clusters:
-                for terminal in self.active_clusters[cluster_id]:
+            if cluster_id and cluster_id in globals.active_clusters:
+                for terminal in globals.active_clusters[cluster_id]:
                     terminal.set_font_scale(newscale)
             else:
                 focused_widget.set_font_scale(newscale)
@@ -556,8 +550,8 @@ class MainWindow(Gtk.ApplicationWindow):
         focused_widget = widget.get_focus()
         if isinstance(focused_widget, vte_terminal.VteTerminal):
             cluster_id = focused_widget.pulse_cluster_id
-            if cluster_id and cluster_id in self.active_clusters:
-                for terminal in self.active_clusters[cluster_id]:
+            if cluster_id and cluster_id in globals.active_clusters:
+                for terminal in globals.active_clusters[cluster_id]:
                     terminal.set_font_scale(1.0)
             else:
                 focused_widget.set_font_scale(1.0)
@@ -627,8 +621,8 @@ class MainWindow(Gtk.ApplicationWindow):
             self.open_connection_tab(conns_to_start[0])
             return
 
-        notebook_w = self.all_notebooks[0].get_allocated_width()
-        notebook_h = self.all_notebooks[0].get_allocated_height()
+        notebook_w = globals.all_notebooks[0].get_allocated_width()
+        notebook_h = globals.all_notebooks[0].get_allocated_height()
 
         best_overall_cols = 1
         best_overall_rows = num_conns
@@ -690,9 +684,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
             boxy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             boxy.append(final_grid)
-            page = self.all_notebooks[0].append(boxy)
+            page = globals.all_notebooks[0].append(boxy)
             self.updatePageTitle(page)
-            self.all_notebooks[0].set_selected_page(page)
+            globals.all_notebooks[0].set_selected_page(page)
 
         if len(conns_to_start) > 1:
             if cluster_name:
@@ -719,18 +713,18 @@ class MainWindow(Gtk.ApplicationWindow):
 
         boxy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         boxy.append(terminal)
-        page = self.all_notebooks[0].append(boxy)
-        self.all_notebooks[0].set_selected_page(page)
+        page = globals.all_notebooks[0].append(boxy)
+        globals.all_notebooks[0].set_selected_page(page)
         self.updatePageTitle(page)
 
     def create_terminal(self, conn: connection.Connection, cluster_id: Optional[str] = None) -> Gtk.ScrolledWindow:
-        if conn.uuid in self.connections:
-            conn = self.connections[conn.uuid]
+        if conn.uuid in globals.connections:
+            conn = globals.connections[conn.uuid]
 
         terminal = vte_terminal.VteTerminal(self, conn, cluster_id)
 
         scrolled = Gtk.ScrolledWindow()
-        if self.app_config.scrollbar_visible:
+        if globals.appy_config.scrollbar_visible:
             scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.ALWAYS)
         scrolled.set_child(terminal)
 
@@ -744,10 +738,10 @@ class MainWindow(Gtk.ApplicationWindow):
         action_group.add_action(create_action)
         submenu.append("Create New Cluster", "term.create_new_cluster")
 
-        if self.active_clusters:
+        if globals.active_clusters:
             submenu.append_section(None, Gio.Menu())
             join_menu = Gio.Menu()
-            for cluster_id in self.active_clusters.keys():
+            for cluster_id in globals.active_clusters.keys():
                 cluster_name = f"Cluster ({cluster_id[:4]})"
                 join_action = Gio.SimpleAction.new(f"join_cluster_{cluster_id}", None)
                 join_action.connect("activate", lambda a, p, t=terminal, cid=cluster_id: self._join_cluster(t, cid))
@@ -821,10 +815,10 @@ class MainWindow(Gtk.ApplicationWindow):
     def _join_cluster(self, terminal, cluster_id):
         self._leave_cluster(terminal)
 
-        if cluster_id not in self.active_clusters:
-            self.active_clusters[cluster_id] = []
+        if cluster_id not in globals.active_clusters:
+            globals.active_clusters[cluster_id] = []
 
-        self.active_clusters[cluster_id].append(terminal)
+        globals.active_clusters[cluster_id].append(terminal)
         terminal.pulse_cluster_id = cluster_id
         terminal.cluster_key_controller.connect("key-pressed", terminal.key_pressed_callback)
         terminal.add_controller(terminal.cluster_key_controller)
@@ -834,12 +828,12 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         cluster_id = terminal.pulse_cluster_id
-        if cluster_id in self.active_clusters and terminal in self.active_clusters[cluster_id]:
-            self.active_clusters[cluster_id].remove(terminal)
+        if cluster_id in globals.active_clusters and terminal in globals.active_clusters[cluster_id]:
+            globals.active_clusters[cluster_id].remove(terminal)
             terminal.cluster_key_controller.disconnect_by_func(terminal.key_pressed_callback)
             terminal.remove_controller(terminal.cluster_key_controller)
-            if not self.active_clusters[cluster_id]:
-                del self.active_clusters[cluster_id]
+            if not globals.active_clusters[cluster_id]:
+                del globals.active_clusters[cluster_id]
 
         terminal.pulse_cluster_id = None
 
@@ -914,7 +908,7 @@ class MainWindow(Gtk.ApplicationWindow):
         return paned
 
     def split_terminal_or_tab(self, action, param, terminal, source_page, orientation, target_page, target_notebook):
-        if self.app_config.split_at_root or not terminal:
+        if globals.appy_config.split_at_root or not terminal:
             self.split_tab(terminal, source_page, orientation, target_page, target_notebook)
         else:
             self.split_terminal(terminal, source_page, orientation, target_page, target_notebook)
@@ -1026,7 +1020,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         if isinstance(parent, Gtk.Box):
             notebook.close_page(page)
-            if notebook != self.all_notebooks[0] and notebook.get_n_pages() == 0:
+            if notebook != globals.all_notebooks[0] and notebook.get_n_pages() == 0:
                 window_to_close = notebook.get_ancestor(Gtk.ApplicationWindow)
                 if window_to_close: window_to_close.close()
             return
@@ -1115,7 +1109,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.updatePageTitle(page)
 
-        behavior = self.app_config.on_disconnect_behavior
+        behavior = globals.appy_config.on_disconnect_behavior
 
         timestamp = GLib.DateTime.new_now_local().format("%Y-%m-%d %H:%M:%S")
 
@@ -1178,9 +1172,9 @@ class MainWindow(Gtk.ApplicationWindow):
     def add_history_item(self, conn_uuid: str, substituted_cmd: str, stdout: str, stderr: str, ok: bool):
         history_item = history_entry.HistoryEntry(substituted_cmd, stdout, stderr, ok, datetime.now())
 
-        if conn_uuid not in self.command_history:
-            self.command_history[conn_uuid] = []
-        self.command_history[conn_uuid].append(history_item)
+        if conn_uuid not in globals.command_history:
+            globals.command_history[conn_uuid] = []
+        globals.command_history[conn_uuid].append(history_item)
         self.history_view.populate_tree()
         self.toast_overlay.add_toast(Adw.Toast.new(f"'{substituted_cmd}' finished!"))
         if not ok or (stderr and len(stderr) > 0):

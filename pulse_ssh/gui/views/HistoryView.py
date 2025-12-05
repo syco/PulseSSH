@@ -12,6 +12,7 @@ from gi.repository import Gio  # type: ignore
 from gi.repository import Gtk  # type: ignore
 from gi.repository import Pango  # type: ignore
 from typing import TYPE_CHECKING
+import pulse_ssh.Globals as globals
 import pulse_ssh.Utils as utils
 import pulse_ssh.gui.dialogs.AppConfigDialog as app_config_dialog
 import pulse_ssh.gui.views.list_items.HistoryItem as history_item
@@ -139,8 +140,8 @@ class HistoryView():
     def populate_tree(self):
         self.root_store.remove_all()
 
-        for conn_uuid in self.app_window.command_history.keys():
-            conn = self.app_window.connections.get(conn_uuid)
+        for conn_uuid in globals.command_history.keys():
+            conn = globals.connections.get(conn_uuid)
             if conn:
                 self.root_store.append(history_item.HistoryItem(conn.name, conn.uuid))
 
@@ -150,7 +151,7 @@ class HistoryView():
             GLib.idle_add(self.select_first_item)
 
     def clear_history_callback(self, button):
-        self.app_window.command_history.clear()
+        globals.command_history.clear()
         self.root_store.remove_all()
 
     def select_first_item(self):
@@ -210,14 +211,14 @@ class HistoryView():
         popover.popup()
 
     def open_appconfig_modal(self, button):
-        dlg = app_config_dialog.AppConfigDialog(self.app_window, self.app_window.app_config, self.app_window.about_info)
+        dlg = app_config_dialog.AppConfigDialog(self.app_window, globals.appy_config, globals.about_info)
         dlg.connect("response", self.appconfig_dialog_callback)
         dlg.present()
 
     def appconfig_dialog_callback(self, dialog, response_id):
         if response_id == Gtk.ResponseType.OK or response_id == Gtk.ResponseType.APPLY:
-            self.app_window.app_config = dialog.get_data()
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            globals.appy_config = dialog.get_data()
+            utils.save_app_config(globals.config_dir, globals.readonly, globals.appy_config, globals.connections, globals.clusters)
             self.app_window.apply_config_settings()
             for notebook in self.app_window.all_notebooks:
                 for terminal in self.app_window._find_all_terminals_in_widget(notebook):
@@ -250,7 +251,7 @@ class HistoryView():
         if not tag_table.lookup("separator"):
             text_buffer.create_tag("separator", underline=Pango.Underline.SINGLE)
 
-        history_items = self.app_window.command_history.get(uuid, [])
+        history_items = globals.command_history.get(uuid, [])
         sorted_history = sorted(history_items, key=lambda item: item.timestamp, reverse=True)
 
         for i, node in enumerate(sorted_history):
@@ -291,7 +292,7 @@ class HistoryView():
         scrolled_window.set_child(text_view)
 
         page = self.app_window.all_notebooks[0].append(scrolled_window)
-        conn = self.app_window.connections.get(uuid)
+        conn = globals.connections.get(uuid)
         page.set_title(GLib.markup_escape_text(f"History: {conn.name if conn else 'Unknown'}"))
         page.pulse_history_uuid = uuid
         self.app_window.all_notebooks[0].set_selected_page(page)

@@ -17,6 +17,7 @@ from typing import Optional
 from typing import TYPE_CHECKING
 import json
 import os
+import pulse_ssh.Globals as globals
 import pulse_ssh.Utils as utils
 import pulse_ssh.data.Connection as connection
 
@@ -29,10 +30,10 @@ class VteTerminal(Vte.Terminal):
         self.app_window = app_window
 
         self.set_vexpand(True)
-        self.set_scrollback_lines(self.app_window.app_config.scrollback_lines)
-        self.set_scroll_on_output(self.app_window.app_config.scroll_on_output)
-        self.set_scroll_on_keystroke(self.app_window.app_config.scroll_on_keystroke)
-        self.set_scroll_on_insert(self.app_window.app_config.scroll_on_insert)
+        self.set_scrollback_lines(globals.appy_config.scrollback_lines)
+        self.set_scroll_on_output(globals.appy_config.scroll_on_output)
+        self.set_scroll_on_keystroke(globals.appy_config.scroll_on_keystroke)
+        self.set_scroll_on_insert(globals.appy_config.scroll_on_insert)
 
         self.apply_theme()
 
@@ -48,15 +49,15 @@ class VteTerminal(Vte.Terminal):
         args = None
 
         if connection.type == "local":
-            args  = [self.app_window.app_config.shell_program]
+            args  = [globals.appy_config.shell_program]
 
         elif connection.type == "ssh":
-            final_cmd, self.proxy_port = utils.build_ssh_command(self.app_window.app_config, connection)
-            args = [self.app_window.app_config.shell_program, "-c", final_cmd]
+            final_cmd, self.proxy_port = utils.build_ssh_command(globals.appy_config, connection)
+            args = [globals.appy_config.shell_program, "-c", final_cmd]
 
         elif connection.type == "sftp":
-            final_cmd = utils.build_sftp_command(self.app_window.app_config, connection)
-            args = [self.app_window.app_config.shell_program, "-c", final_cmd]
+            final_cmd = utils.build_sftp_command(globals.appy_config, connection)
+            args = [globals.appy_config.shell_program, "-c", final_cmd]
 
         if args:
             self.spawn_async(
@@ -208,7 +209,7 @@ class VteTerminal(Vte.Terminal):
 
     def create_local_cmds_submenu(self, action_group):
         submenu = Gio.Menu()
-        all_local_cmds = {**self.app_window.app_config.local_cmds, **self.pulse_conn.local_cmds}
+        all_local_cmds = {**globals.appy_config.local_cmds, **self.pulse_conn.local_cmds}
 
         if not all_local_cmds:
             no_scripts_item = Gio.MenuItem.new("No scripts defined", None)
@@ -228,7 +229,7 @@ class VteTerminal(Vte.Terminal):
 
     def create_remote_cmds_submenu(self, action_group):
         submenu = Gio.Menu()
-        all_remote_cmds = {**self.app_window.app_config.remote_cmds, **self.pulse_conn.remote_cmds}
+        all_remote_cmds = {**globals.appy_config.remote_cmds, **self.pulse_conn.remote_cmds}
 
         if not all_remote_cmds:
             no_scripts_item = Gio.MenuItem.new("No scripts defined", None)
@@ -256,7 +257,7 @@ class VteTerminal(Vte.Terminal):
                 self.app_window.add_history_item(self.pulse_conn.uuid, substituted_cmd, "", e.message, False)
 
         try:
-            subprocess = Gio.Subprocess.new([self.app_window.app_config.shell_program, '-c', substituted_cmd], Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE)
+            subprocess = Gio.Subprocess.new([globals.appy_config.shell_program, '-c', substituted_cmd], Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE)
             subprocess.communicate_utf8_async(None, None, on_finished, substituted_cmd, self.pulse_conn.uuid)
         except GLib.Error as e:
             self.app_window.add_history_item(self.pulse_conn.uuid, substituted_cmd, "", e.message, False)
@@ -266,8 +267,8 @@ class VteTerminal(Vte.Terminal):
         self.feed_child(f"{substituted_cmd}\n".encode('utf-8'))
 
     def paste_clipboard(self):
-        if self.pulse_cluster_id and self.pulse_cluster_id in self.app_window.active_clusters:
-            for terminal in self.app_window.active_clusters[self.pulse_cluster_id]:
+        if self.pulse_cluster_id and self.pulse_cluster_id in globals.active_clusters:
+            for terminal in globals.active_clusters[self.pulse_cluster_id]:
                 super(VteTerminal, terminal).paste_clipboard()
         else:
             super().paste_clipboard()
@@ -276,8 +277,8 @@ class VteTerminal(Vte.Terminal):
         self.paste_primary()
 
     def paste_primary(self):
-        if self.pulse_cluster_id and self.pulse_cluster_id in self.app_window.active_clusters:
-            for terminal in self.app_window.active_clusters[self.pulse_cluster_id]:
+        if self.pulse_cluster_id and self.pulse_cluster_id in globals.active_clusters:
+            for terminal in globals.active_clusters[self.pulse_cluster_id]:
                 if terminal != self:
                     super(VteTerminal, terminal).paste_primary()
         else:
@@ -294,7 +295,7 @@ class VteTerminal(Vte.Terminal):
             return False
 
         cluster_id = self.pulse_cluster_id
-        if cluster_id not in self.app_window.active_clusters:
+        if cluster_id not in globals.active_clusters:
             self.remove_controller(controller)
             self.pulse_cluster_id = None
             return False
@@ -325,16 +326,16 @@ class VteTerminal(Vte.Terminal):
             key_bytes = bytes([keyval - Gdk.KEY_a + 1])
 
         if key_bytes:
-            for t in self.app_window.active_clusters[cluster_id]:
+            for t in globals.active_clusters[cluster_id]:
                 t.feed_child(key_bytes)
             return True
 
         return False
 
     def apply_theme(self):
-        self.set_audible_bell(self.app_window.app_config.audible_bell)
+        self.set_audible_bell(globals.appy_config.audible_bell)
 
-        font_desc = Pango.FontDescription.from_string(f"{self.app_window.app_config.font_family} {self.app_window.app_config.font_size}")
+        font_desc = Pango.FontDescription.from_string(f"{globals.appy_config.font_family} {globals.appy_config.font_size}")
         self.set_font(font_desc)
 
         cursor_shape_map = {
@@ -342,7 +343,7 @@ class VteTerminal(Vte.Terminal):
             "ibeam": Vte.CursorShape.IBEAM,
             "underline": Vte.CursorShape.UNDERLINE,
         }
-        self.set_cursor_shape(cursor_shape_map.get(self.app_window.app_config.cursor_shape, Vte.CursorShape.BLOCK))
+        self.set_cursor_shape(cursor_shape_map.get(globals.appy_config.cursor_shape, Vte.CursorShape.BLOCK))
 
         def hex_to_rgba(hex_color):
             rgba = Gdk.RGBA()
@@ -351,7 +352,7 @@ class VteTerminal(Vte.Terminal):
 
         themes = utils.load_themes()
 
-        theme_name = self.app_window.app_config.theme
+        theme_name = globals.appy_config.theme
 
         theme_data = themes.get(theme_name)
 
@@ -457,7 +458,7 @@ class VteTerminal(Vte.Terminal):
 
             try:
                 self.orchestrator_process = Gio.Subprocess.new(
-                    [self.app_window.app_config.shell_program, '-c', self.subbed_orchestrator_script_path],
+                    [globals.appy_config.shell_program, '-c', self.subbed_orchestrator_script_path],
                     Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
                 )
                 if self.orchestrator_process:

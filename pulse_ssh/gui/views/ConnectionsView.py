@@ -12,6 +12,7 @@ from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
 from gi.repository import Gtk  # type: ignore
 from typing import TYPE_CHECKING
+import pulse_ssh.Globals as globals
 import pulse_ssh.Utils as utils
 import pulse_ssh.data.Connection as connection
 import pulse_ssh.gui.dialogs.AppConfigDialog as app_config_dialog
@@ -181,7 +182,7 @@ class ConnectionsView():
             parent_gio_list_store.append(new_folder_item)
             return new_folder_item
 
-        for c in sorted(self.app_window.connections.values(), key=utils.connectionsSortFunction):
+        for c in sorted(globals.connections.values(), key=utils.connectionsSortFunction):
             listItem = connection_list_item.ConnectionListItem(c.name, c)
             if listItem:
                 if c.folder:
@@ -355,17 +356,17 @@ class ConnectionsView():
 
         dragged_conn_uuids = value.split('\n')
         for uuid_str in dragged_conn_uuids:
-            dragged_conn = self.app_window.connections.get(uuid_str)
+            dragged_conn = globals.connections.get(uuid_str)
 
             if dragged_conn:
                 dragged_conn.folder = target_folder
             else:
                 move_folder = uuid_str.split('/')[-1]
-                for id, con in self.app_window.connections.items():
+                for id, con in globals.connections.items():
                     if con.folder.startswith(uuid_str):
                         con.folder = con.folder.replace(uuid_str, f"{target_folder}/{move_folder}", 1)
 
-        utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+        utils.save_app_config(globals.config_dir, globals.readonly, globals.appy_config, globals.connections, globals.clusters)
         self.populate_tree()
         return True
 
@@ -377,8 +378,8 @@ class ConnectionsView():
     def add_callback(self, dialog, response_id):
         if response_id == Gtk.ResponseType.OK:
             conn = dialog.get_data()
-            self.app_window.connections[conn.uuid] = conn
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            globals.connections[conn.uuid] = conn
+            utils.save_app_config(globals.config_dir, globals.readonly, globals.appy_config, globals.connections, globals.clusters)
             self.populate_tree()
         dialog.destroy()
 
@@ -404,8 +405,8 @@ class ConnectionsView():
     def edit_callback(self, dialog, response_id, *args):
         if response_id == Gtk.ResponseType.OK:
             new_conn = dialog.get_data()
-            self.app_window.connections[new_conn.uuid] = new_conn
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            globals.connections[new_conn.uuid] = new_conn
+            utils.save_app_config(globals.config_dir, globals.readonly, globals.appy_config, globals.connections, globals.clusters)
             self.populate_tree()
         dialog.destroy()
         self.conn_to_edit = None
@@ -413,11 +414,11 @@ class ConnectionsView():
     def clone_connection(self, action, param, conn_to_clone: connection.Connection):
         clone = conn_to_clone.get_cloned_connection()
         clone.name = f"Copy of {conn_to_clone.name}"
-        self.app_window.connections[clone.uuid] = clone
-        utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+        globals.connections[clone.uuid] = clone
+        utils.save_app_config(globals.config_dir, globals.readonly, globals.appy_config, globals.connections, globals.clusters)
         self.populate_tree()
 
-        self.open_edit_modal(None, None, self.app_window.connections[clone.uuid])
+        self.open_edit_modal(None, None, globals.connections[clone.uuid])
 
     def open_remove_modal(self, action, param, conn_to_remove: connection.Connection):
         dialog = Adw.MessageDialog(
@@ -434,21 +435,21 @@ class ConnectionsView():
 
     def remove_callback(self, dialog, response_id, conn):
         if response_id == "remove":
-            if conn.uuid in self.app_window.connections:
-                del self.app_window.connections[conn.uuid]
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            if conn.uuid in globals.connections:
+                del globals.connections[conn.uuid]
+            utils.save_app_config(globals.config_dir, globals.readonly, globals.appy_config, globals.connections, globals.clusters)
             self.populate_tree()
         dialog.destroy()
 
     def open_appconfig_modal(self, button):
-        dlg = app_config_dialog.AppConfigDialog(self.app_window, self.app_window.app_config, self.app_window.about_info)
+        dlg = app_config_dialog.AppConfigDialog(self.app_window, globals.appy_config, globals.about_info)
         dlg.connect("response", self.appconfig_dialog_callback)
         dlg.present()
 
     def appconfig_dialog_callback(self, dialog, response_id):
         if response_id == Gtk.ResponseType.OK or response_id == Gtk.ResponseType.APPLY:
-            self.app_window.app_config = dialog.get_data()
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            globals.appy_config = dialog.get_data()
+            utils.save_app_config(globals.config_dir, globals.readonly, globals.appy_config, globals.connections, globals.clusters)
             self.app_window.apply_config_settings()
             for notebook in self.app_window.all_notebooks:
                 for terminal in self.app_window._find_all_terminals_in_widget(notebook):

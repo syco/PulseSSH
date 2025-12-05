@@ -2,26 +2,18 @@
 
 import argparse
 import os
+import pulse_ssh.Globals as globals
+import pulse_ssh.Utils as utils
 import sys
-
-__version__ = "0.0.1"
-about_info = {
-    "version": __version__,
-    "description": "An SSH connection manager with terminal multiplexing",
-    "license": "GPL-3.0",
-    "developer": "Syco",
-    "website": "https://github.com/PulseSSH/PulseSSH.git",
-    "issue_url": "https://github.com/PulseSSH/PulseSSH.git/issues"
-}
 
 class VersionInfoAction(argparse.Action):
     def __init__(self, option_strings, dest, nargs=0, **kwargs):
         super(VersionInfoAction, self).__init__(option_strings, dest, nargs=nargs, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
-        print(f"PulseSSH {__version__} - {about_info['description']}.")
-        print(f"Copyright (c) 2025 {about_info['developer']}.")
-        print(f"Find the source code at: {about_info['website']}")
+        print(f"PulseSSH {globals.__version__} - {globals.about_info['description']}.")
+        print(f"Copyright (c) 2025 {globals.about_info['developer']}.")
+        print(f"Find the source code at: {globals.about_info['website']}")
         parser.exit()
 
 def run_gtk_app(args):
@@ -58,19 +50,19 @@ def run_gtk_app(args):
                 self.connect('handle-local-options', self.on_handle_local_options)
 
             def on_handle_local_options(self, app, options):
-                self.config_dir = options.lookup_value("config-dir", None)
-                if self.config_dir:
-                    self.config_dir = self.config_dir.get_string()
+                globals.config_dir = options.lookup_value("config-dir", None)
+                if globals.config_dir:
+                    globals.config_dir = globals.config_dir.get_string()
                 else:
-                    self.config_dir = os.path.expanduser("~/.config/pulse_ssh")
-                self.readonly = options.lookup_value("readonly", None) is not None
+                    globals.config_dir = os.path.expanduser("~/.config/pulse_ssh")
+                globals.readonly = options.lookup_value("readonly", None) is not None
 
                 return -1
 
             def on_activate(self, app):
-                self.win = main_window.MainWindow(
-                    self, config_dir=self.config_dir, readonly=self.readonly, about_info=about_info
-                )
+                globals.appy_config, globals.connections, globals.clusters = utils.load_app_config(globals.config_dir)
+
+                self.win = main_window.MainWindow(self)
                 self.win.present()
 
         signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -83,7 +75,9 @@ def run_gtk_app(args):
 
 def run_curses_app(args):
     import pulse_ssh.tui.CursesWindow as curses_window
-    curses_window.CursesWindow(config_dir=args.config_dir).run()
+
+    globals.appy_config, globals.connections, globals.clusters = utils.load_app_config(globals.config_dir)
+    curses_window.CursesWindow().run()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
