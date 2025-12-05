@@ -49,9 +49,6 @@ class AppConfigDialog(Adw.Window):
 
     def __init__(self, parent, config: app_config.AppConfig, about_info: dict):
         super().__init__(title="Application Configuration", transient_for=parent, modal=True)
-        screen_height = Gdk.Display.get_default().get_primary_monitor().get_geometry().height
-        self.set_default_size(700, screen_height / 1.3)
-
         cancel_button = Gtk.Button.new_with_mnemonic("_Cancel")
         cancel_button.connect("clicked", lambda w: self.emit("response", Gtk.ResponseType.CANCEL))
 
@@ -110,7 +107,9 @@ class AppConfigDialog(Adw.Window):
         main_box.append(sidebar)
         main_box.append(self.stack)
 
-        self._build_general_page(config)
+        self._build_appearance_page(config)
+        self._build_behavior_page(config)
+        self._build_scrolling_page(config)
         self._build_ssh_page(config)
         self._build_binaries_page(config)
         self._build_shortcuts_page()
@@ -119,10 +118,11 @@ class AppConfigDialog(Adw.Window):
 
         return main_box
 
-    def _build_general_page(self, config: app_config.AppConfig):
+    def _build_appearance_page(self, config: app_config.AppConfig):
         page = Adw.PreferencesPage()
+        self.stack.add_titled(page, "appearance", "Appearance")
 
-        appearance_group = Adw.PreferencesGroup(title="Appearance")
+        appearance_group = Adw.PreferencesGroup()
         page.add(appearance_group)
 
         self.font_chooser = Gtk.FontDialogButton(dialog=Gtk.FontDialog(modal=True))
@@ -183,7 +183,11 @@ class AppConfigDialog(Adw.Window):
         self.sidebar_on_right = Adw.SwitchRow(title="Show Sidebar on the Right", active=config.sidebar_on_right)
         appearance_group.add(self.sidebar_on_right)
 
-        behavior_group = Adw.PreferencesGroup(title="Behavior")
+    def _build_behavior_page(self, config: app_config.AppConfig):
+        page = Adw.PreferencesPage()
+        self.stack.add_titled(page, "behavior", "Behavior")
+
+        behavior_group = Adw.PreferencesGroup()
         page.add(behavior_group)
 
         self.shell_program = Adw.ComboRow(title="Shell", model=Gtk.StringList.new(SHELL_PROGRAMS))
@@ -204,7 +208,11 @@ class AppConfigDialog(Adw.Window):
         self.audible_bell = Adw.SwitchRow(title="Audible Bell", subtitle="Enable the terminal bell sound", active=config.audible_bell)
         behavior_group.add(self.audible_bell)
 
-        scrolling_group = Adw.PreferencesGroup(title="Scrolling")
+    def _build_scrolling_page(self, config: app_config.AppConfig):
+        page = Adw.PreferencesPage()
+        self.stack.add_titled(page, "scrolling", "Scrolling")
+
+        scrolling_group = Adw.PreferencesGroup()
         page.add(scrolling_group)
 
         scrollback_adjustment = Gtk.Adjustment(
@@ -225,8 +233,6 @@ class AppConfigDialog(Adw.Window):
 
         self.scroll_on_insert = Adw.SwitchRow(title="Scroll on Insert (deprecated)", subtitle="This option may have no effect", active=config.scroll_on_insert)
         scrolling_group.add(self.scroll_on_insert)
-
-        self.stack.add_titled(page, "general", "General")
 
     def _build_ssh_page(self, config: app_config.AppConfig):
         page_grid = Gtk.Grid(margin_start=10, margin_end=10, margin_top=10, margin_bottom=10, row_spacing=6, column_spacing=6)

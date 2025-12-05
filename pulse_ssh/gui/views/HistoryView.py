@@ -219,8 +219,9 @@ class HistoryView():
             self.app_window.app_config = dialog.get_data()
             utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
             self.app_window.apply_config_settings()
-            for terminal in self.app_window._find_all_terminals_in_widget(self.app_window.notebook):
-                terminal.apply_theme()
+            for notebook in self.app_window.all_notebooks:
+                for terminal in self.app_window._find_all_terminals_in_widget(notebook):
+                    terminal.apply_theme()
 
         if response_id == Gtk.ResponseType.OK or response_id == Gtk.ResponseType.CANCEL:
             dialog.destroy()
@@ -269,14 +270,15 @@ class HistoryView():
     def open_history_in_tab(self, action, param, uuid: str):
         self.filter_entry.set_text("")
 
-        for i in range(self.app_window.notebook.get_n_pages()):
-            page = self.app_window.notebook.get_nth_page(i)
-            if hasattr(page, 'pulse_history_uuid') and page.pulse_history_uuid == uuid:
-                scrolled_window = page.get_child()
-                text_view = scrolled_window.get_child()
-                self._populate_text_view_with_history(text_view, uuid)
-                self.app_window.notebook.set_selected_page(page)
-                return
+        for notebook in self.app_window.all_notebooks:
+            for i in range(notebook.get_n_pages()):
+                page = notebook.get_nth_page(i)
+                if hasattr(page, 'pulse_history_uuid') and page.pulse_history_uuid == uuid:
+                    scrolled_window = page.get_child()
+                    text_view = scrolled_window.get_child()
+                    self._populate_text_view_with_history(text_view, uuid)
+                    notebook.set_selected_page(page)
+                    return
 
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -288,8 +290,8 @@ class HistoryView():
 
         scrolled_window.set_child(text_view)
 
-        page = self.app_window.notebook.append(scrolled_window)
+        page = self.app_window.all_notebooks[0].append(scrolled_window)
         conn = self.app_window.connections.get(uuid)
         page.set_title(GLib.markup_escape_text(f"History: {conn.name if conn else 'Unknown'}"))
         page.pulse_history_uuid = uuid
-        self.app_window.notebook.set_selected_page(page)
+        self.app_window.all_notebooks[0].set_selected_page(page)

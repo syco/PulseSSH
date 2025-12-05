@@ -111,32 +111,30 @@ class VteTerminal(Vte.Terminal):
     def _create_split_submenu(self, action_group, orientation, source_page):
         submenu = Gio.Menu()
 
-        source_page_idx = self.app_window.notebook.get_page_position(source_page)
-
         action_name = f"split_new_{'h' if orientation == Gtk.Orientation.HORIZONTAL else 'v'}"
         split_new_action = Gio.SimpleAction.new(action_name, None)
-        split_new_action.connect("activate", self.app_window.split_terminal_or_tab, self, source_page, source_page_idx, orientation, None, -1)
+        split_new_action.connect("activate", self.app_window.split_terminal_or_tab, self, source_page, orientation, None, None)
         action_group.add_action(split_new_action)
         submenu.append("New Terminal (Same Host)", f"term.{action_name}")
         submenu.append_section(None, Gio.Menu())
 
-        for target_page_idx in range(self.app_window.notebook.get_n_pages()):
-            if target_page_idx == source_page_idx: continue
-            target_page = self.app_window.notebook.get_nth_page(target_page_idx)
-            if target_page == source_page: continue
-            label_text = target_page.get_title()
+        for target_notebook in self.app_window.all_notebooks:
+            for target_page_idx in range(target_notebook.get_n_pages()):
+                target_page = target_notebook.get_nth_page(target_page_idx)
+                if target_page == source_page: continue
+                label_text = target_page.get_title()
 
-            action_name = f"split_tab_{target_page_idx}_{'h' if orientation == Gtk.Orientation.HORIZONTAL else 'v'}"
-            split_tab_action = Gio.SimpleAction.new(action_name, None)
-            split_tab_action.connect("activate", self.app_window.split_terminal_or_tab, self, source_page, source_page_idx, orientation, target_page, target_page_idx)
-            action_group.add_action(split_tab_action)
-            submenu.append(f"Tab: {label_text}", f"term.{action_name}")
+                action_name = f"split_tab_{target_page_idx}_{'h' if orientation == Gtk.Orientation.HORIZONTAL else 'v'}"
+                split_tab_action = Gio.SimpleAction.new(action_name, None)
+                split_tab_action.connect("activate", self.app_window.split_terminal_or_tab, self, source_page, orientation, target_page, target_notebook)
+                action_group.add_action(split_tab_action)
+                submenu.append(f"Tab: {label_text}", f"term.{action_name}")
 
         return submenu
 
     def build_menu(self, gesture, n_press, x, y):
-        source_page = self.get_ancestor_page()
-        if not source_page:
+        notebook, page = self.get_ancestor_page()
+        if not notebook or not page:
             return
 
         menu_model = Gio.Menu()
@@ -163,16 +161,16 @@ class VteTerminal(Vte.Terminal):
 
         menu_model.append_section(None, Gio.Menu())
 
-        split_h_submenu = self._create_split_submenu(action_group, Gtk.Orientation.HORIZONTAL, source_page)
+        split_h_submenu = self._create_split_submenu(action_group, Gtk.Orientation.HORIZONTAL, page)
         menu_model.append_submenu("Split Horizontal", split_h_submenu)
 
-        split_v_submenu = self._create_split_submenu(action_group, Gtk.Orientation.VERTICAL, source_page)
+        split_v_submenu = self._create_split_submenu(action_group, Gtk.Orientation.VERTICAL, page)
         menu_model.append_submenu("Split Vertical", split_v_submenu)
 
         parent = self.get_parent().get_parent()
         if isinstance(parent, Gtk.Paned):
             unsplit_action = Gio.SimpleAction.new("unsplit", None)
-            unsplit_action.connect("activate", self.app_window.unsplit_terminal, self, source_page)
+            unsplit_action.connect("activate", self.app_window.unsplit_terminal, self, page, notebook)
             action_group.add_action(unsplit_action)
             menu_model.append("Move to tab", "term.unsplit")
 
@@ -190,14 +188,14 @@ class VteTerminal(Vte.Terminal):
         menu_model.append_section(None, Gio.Menu())
 
         rename_action = Gio.SimpleAction.new("rename_tab", None)
-        rename_action.connect("activate", self.app_window._rename_tab, self, source_page)
+        rename_action.connect("activate", self.app_window._rename_tab, self, page)
         action_group.add_action(rename_action)
         menu_model.append("Rename Tab", "term.rename_tab")
 
         menu_model.append_section(None, Gio.Menu())
 
         close_action = Gio.SimpleAction.new("close", None)
-        close_action.connect("activate", self.app_window.close_terminal, self, source_page)
+        close_action.connect("activate", self.app_window.close_terminal, self, page, notebook)
         action_group.add_action(close_action)
         menu_model.append("Close", "term.close")
 
@@ -369,13 +367,14 @@ class VteTerminal(Vte.Terminal):
             if cursor:
                 self.set_color_cursor(cursor)
 
-    def get_ancestor_page(self) -> Optional[Adw.TabPage]:
+    def get_ancestor_page(self) -> tuple[Optional[Adw.TabView], Optional[Adw.TabPage]]:
         widget = self
         while parent := widget.get_parent():
             if isinstance(parent.get_parent().get_parent(), Adw.TabView):
-                return self.app_window.notebook.get_page(parent)
+                notebook = parent.get_parent().get_parent()
+                return notebook, notebook.get_page(parent)
             widget = parent
-        return None
+        return None, None
 
     def get_last_line(self) -> str:
         col, row = self.get_cursor_position()

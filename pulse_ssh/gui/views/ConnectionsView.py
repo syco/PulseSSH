@@ -450,8 +450,9 @@ class ConnectionsView():
             self.app_window.app_config = dialog.get_data()
             utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
             self.app_window.apply_config_settings()
-            for terminal in self.app_window._find_all_terminals_in_widget(self.app_window.notebook):
-                terminal.apply_theme()
+            for notebook in self.app_window.all_notebooks:
+                for terminal in self.app_window._find_all_terminals_in_widget(notebook):
+                    terminal.apply_theme()
 
         if response_id == Gtk.ResponseType.OK or response_id == Gtk.ResponseType.CANCEL:
             dialog.destroy()
