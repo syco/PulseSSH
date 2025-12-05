@@ -451,7 +451,7 @@ class ConnectionsView():
             globals.appy_config = dialog.get_data()
             utils.save_app_config(globals.config_dir, globals.readonly, globals.appy_config, globals.connections, globals.clusters)
             self.app_window.apply_config_settings()
-            for notebook in self.app_window.all_notebooks:
+            for notebook in globals.all_notebooks:
                 for terminal in self.app_window._find_all_terminals_in_widget(notebook):
                     terminal.apply_theme()
 

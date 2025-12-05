@@ -220,7 +220,7 @@ class HistoryView():
             globals.appy_config = dialog.get_data()
             utils.save_app_config(globals.config_dir, globals.readonly, globals.appy_config, globals.connections, globals.clusters)
             self.app_window.apply_config_settings()
-            for notebook in self.app_window.all_notebooks:
+            for notebook in globals.all_notebooks:
                 for terminal in self.app_window._find_all_terminals_in_widget(notebook):
                     terminal.apply_theme()
 
@@ -271,7 +271,7 @@ class HistoryView():
     def open_history_in_tab(self, action, param, uuid: str):
         self.filter_entry.set_text("")
 
-        for notebook in self.app_window.all_notebooks:
+        for notebook in globals.all_notebooks:
             for i in range(notebook.get_n_pages()):
                 page = notebook.get_nth_page(i)
                 if hasattr(page, 'pulse_history_uuid') and page.pulse_history_uuid == uuid:
@@ -291,8 +291,8 @@ class HistoryView():
 
         scrolled_window.set_child(text_view)
 
-        page = self.app_window.all_notebooks[0].append(scrolled_window)
+        page = globals.all_notebooks[0].append(scrolled_window)
         conn = globals.connections.get(uuid)
         page.set_title(GLib.markup_escape_text(f"History: {conn.name if conn else 'Unknown'}"))
         page.pulse_history_uuid = uuid
-        self.app_window.all_notebooks[0].set_selected_page(page)
+        globals.all_notebooks[0].set_selected_page(page)

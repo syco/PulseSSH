@@ -119,7 +119,7 @@ class VteTerminal(Vte.Terminal):
         submenu.append("New Terminal (Same Host)", f"term.{action_name}")
         submenu.append_section(None, Gio.Menu())
 
-        for target_notebook in self.app_window.all_notebooks:
+        for target_notebook in globals.all_notebooks:
             for target_page_idx in range(target_notebook.get_n_pages()):
                 target_page = target_notebook.get_nth_page(target_page_idx)
                 if target_page == source_page: continue
