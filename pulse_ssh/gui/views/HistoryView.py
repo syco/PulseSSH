@@ -4,22 +4,22 @@ import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
+gi.require_version('Vte', '3.91')
 
 from gi.repository import Adw  # type: ignore
-from gi.repository import GLib  # type: ignore
 from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
+from gi.repository import GLib  # type: ignore
 from gi.repository import Gtk  # type: ignore
 from gi.repository import Pango  # type: ignore
-from typing import TYPE_CHECKING
-import pulse_ssh.Utils as utils
-import pulse_ssh.gui.dialogs.AppConfigDialog as app_config_dialog
-import pulse_ssh.gui.views.list_items.HistoryItem as history_item
+import pulse_ssh.Globals as _globals
+import pulse_ssh.gui.dialogs.AppConfigDialog as _app_config_dialog
+import pulse_ssh.gui.Globals as _gui_globals
+import pulse_ssh.gui.views.list_items.HistoryItem as _history_item
+import pulse_ssh.Utils as _utils
 
-if TYPE_CHECKING:
-    from pulse_ssh.gui.MainWindow import MainWindow
 class HistoryView():
-    def __init__(self, app_window: "MainWindow"):
+    def __init__(self, app_window):
         super().__init__()
         self.app_window = app_window
 
@@ -46,7 +46,7 @@ class HistoryView():
         label.set_text(item.name)
 
     def getAdwToolbarView(self) -> Adw.ToolbarView:
-        self.root_store = Gio.ListStore(item_type=history_item.HistoryItem)
+        self.root_store = Gio.ListStore(item_type=_history_item.HistoryItem)
 
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self.setup_list_item)
@@ -106,7 +106,7 @@ class HistoryView():
         return toolbar_view
 
     def open_local_terminal(self, button):
-        self.app_window.open_connection_tab(utils.local_connection)
+        _gui_globals.layout_manager.open_connection_tab(_utils.local_connection)
 
     def on_key_pressed(self, controller, keyval, keycode, state):
         if self.filter_entry.has_focus():
@@ -139,10 +139,10 @@ class HistoryView():
     def populate_tree(self):
         self.root_store.remove_all()
 
-        for conn_uuid in self.app_window.command_history.keys():
-            conn = self.app_window.connections.get(conn_uuid)
+        for conn_uuid in _gui_globals.command_history.keys():
+            conn = _globals.connections.get(conn_uuid)
             if conn:
-                self.root_store.append(history_item.HistoryItem(conn.name, conn.uuid))
+                self.root_store.append(_history_item.HistoryItem(conn.name, conn.uuid))
 
     def filter_changed_callback(self, entry):
         if self.filter:
@@ -150,7 +150,7 @@ class HistoryView():
             GLib.idle_add(self.select_first_item)
 
     def clear_history_callback(self, button):
-        self.app_window.command_history.clear()
+        _gui_globals.command_history.clear()
         self.root_store.remove_all()
 
     def select_first_item(self):
@@ -210,17 +210,18 @@ class HistoryView():
         popover.popup()
 
     def open_appconfig_modal(self, button):
-        dlg = app_config_dialog.AppConfigDialog(self.app_window, self.app_window.app_config, self.app_window.about_info)
+        dlg = _app_config_dialog.AppConfigDialog(self.app_window, _globals.app_config, _globals.about_info)
         dlg.connect("response", self.appconfig_dialog_callback)
         dlg.present()
 
     def appconfig_dialog_callback(self, dialog, response_id):
         if response_id == Gtk.ResponseType.OK or response_id == Gtk.ResponseType.APPLY:
-            self.app_window.app_config = dialog.get_data()
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            _globals.app_config = dialog.get_data()
+            _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
             self.app_window.apply_config_settings()
-            for terminal in self.app_window._find_all_terminals_in_widget(self.app_window.notebook):
-                terminal.apply_theme()
+            for notebook in _gui_globals.all_notebooks:
+                for terminal in self.app_window._find_all_terminals_in_widget(notebook):
+                    terminal.apply_theme()
 
         if response_id == Gtk.ResponseType.OK or response_id == Gtk.ResponseType.CANCEL:
             dialog.destroy()
@@ -249,7 +250,7 @@ class HistoryView():
         if not tag_table.lookup("separator"):
             text_buffer.create_tag("separator", underline=Pango.Underline.SINGLE)
 
-        history_items = self.app_window.command_history.get(uuid, [])
+        history_items = _gui_globals.command_history.get(uuid, [])
         sorted_history = sorted(history_items, key=lambda item: item.timestamp, reverse=True)
 
         for i, node in enumerate(sorted_history):
@@ -269,14 +270,15 @@ class HistoryView():
     def open_history_in_tab(self, action, param, uuid: str):
         self.filter_entry.set_text("")
 
-        for i in range(self.app_window.notebook.get_n_pages()):
-            page = self.app_window.notebook.get_nth_page(i)
-            if hasattr(page, 'pulse_history_uuid') and page.pulse_history_uuid == uuid:
-                scrolled_window = page.get_child()
-                text_view = scrolled_window.get_child()
-                self._populate_text_view_with_history(text_view, uuid)
-                self.app_window.notebook.set_selected_page(page)
-                return
+        for notebook in _gui_globals.all_notebooks:
+            for i in range(notebook.get_n_pages()):
+                page = notebook.get_nth_page(i)
+                if hasattr(page, 'pulse_history_uuid') and page.pulse_history_uuid == uuid:
+                    scrolled_window = page.get_child()
+                    text_view = scrolled_window.get_child()
+                    self._populate_text_view_with_history(text_view, uuid)
+                    notebook.set_selected_page(page)
+                    return
 
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -288,8 +290,8 @@ class HistoryView():
 
         scrolled_window.set_child(text_view)
 
-        page = self.app_window.notebook.append(scrolled_window)
-        conn = self.app_window.connections.get(uuid)
+        page = _gui_globals.all_notebooks[0].append(scrolled_window)
+        conn = _globals.connections.get(uuid)
         page.set_title(GLib.markup_escape_text(f"History: {conn.name if conn else 'Unknown'}"))
         page.pulse_history_uuid = uuid
-        self.app_window.notebook.set_selected_page(page)
+        _gui_globals.all_notebooks[0].set_selected_page(page)

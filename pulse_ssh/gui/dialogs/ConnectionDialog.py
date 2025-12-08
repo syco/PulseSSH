@@ -2,27 +2,28 @@
 
 import gi
 gi.require_version('Adw', '1')
+gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
+gi.require_version('Vte', '3.91')
 
 from gi.repository import Adw  # type: ignore
-from gi.repository import GLib  # type: ignore
-from gi.repository import GObject  # type: ignore
 from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
+from gi.repository import GLib  # type: ignore
+from gi.repository import GObject  # type: ignore
 from gi.repository import Gtk  # type: ignore
 from typing import Optional
 import os
-import pulse_ssh.data.Connection as connection
+import pulse_ssh.data.Connection as _connection
 
 class ConnectionDialog(Adw.Window):
     __gsignals__ = {
         'response': (GObject.SignalFlags.RUN_FIRST, None, (int,))
     }
 
-    def __init__(self, parent, conn: Optional[connection.Connection] = None):
+    def __init__(self, parent, conn: Optional[_connection.Connection] = None):
         super().__init__(title="Connection Configuration", transient_for=parent, modal=True)
-        screen_height = Gdk.Display.get_default().get_primary_monitor().get_geometry().height
-        self.set_default_size(700, screen_height / 1.3)
+        #self.set_default_size(800, 600)
 
         cancel_button = Gtk.Button.new_with_mnemonic("_Cancel")
         cancel_button.connect("clicked", lambda w: self.emit("response", Gtk.ResponseType.CANCEL))
@@ -62,27 +63,32 @@ class ConnectionDialog(Adw.Window):
             return True
 
     def _build_ui(self):
-        main_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        split_view = Adw.NavigationSplitView()
+        split_view.set_min_sidebar_width(200)
+        split_view.set_max_sidebar_width(300)
+        split_view.set_collapsed(False)
 
         sidebar = Gtk.StackSidebar()
         self.stack = Gtk.Stack()
+        self.stack.set_size_request(600, 400)
+        self.stack.set_hhomogeneous(True)
+        self.stack.set_vhomogeneous(True)
         sidebar.set_stack(self.stack)
 
-        main_box.append(sidebar)
-        main_box.append(self.stack)
+        split_view.set_sidebar(Adw.NavigationPage.new(sidebar, "Categories"))
+        split_view.set_content(Adw.NavigationPage.new(self.stack, "Settings"))
 
-        page = Adw.PreferencesPage()
+        general_page = Adw.PreferencesPage()
+        self.stack.add_titled(general_page, "general", "General")
 
-        general_group = Adw.PreferencesGroup(title="General")
-        page.add(general_group)
+        general_group = Adw.PreferencesGroup()
+        general_page.add(general_group)
 
         self.name = Adw.EntryRow(title="Name", text=self.conn.name if self.conn else "")
         general_group.add(self.name)
 
         self.type_dropdown = Adw.ComboRow(title="Type", model=Gtk.StringList.new(["ssh", "sftp"]))
-        if self.conn and self.conn.type == "ssh":
-            self.type_dropdown.set_selected(0)
-        elif self.conn and self.conn.type == "sftp":
+        if self.conn and self.conn.type == "sftp":
             self.type_dropdown.set_selected(1)
         else:
             self.type_dropdown.set_selected(0)
@@ -91,8 +97,11 @@ class ConnectionDialog(Adw.Window):
         self.folder = Adw.EntryRow(title="Folder", text=self.conn.folder if self.conn else "")
         general_group.add(self.folder)
 
-        details_group = Adw.PreferencesGroup(title="Connection Details")
-        page.add(details_group)
+        details_page = Adw.PreferencesPage()
+        self.stack.add_titled(details_page, "connection_details", "Connection Details")
+
+        details_group = Adw.PreferencesGroup()
+        details_page.add(details_group)
 
         self.host = Adw.EntryRow(title="Host", text=self.conn.host if self.conn else "")
         details_group.add(self.host)
@@ -104,9 +113,6 @@ class ConnectionDialog(Adw.Window):
         self.user = Adw.EntryRow(title="User", text=self.conn.user if self.conn else "")
         details_group.add(self.user)
 
-        self.password = Adw.PasswordEntryRow(title="Password", text=self.conn.password if self.conn and self.conn.password else "")
-        details_group.add(self.password)
-
         self.identity_file = Gtk.Entry(text=self.conn.identity_file if self.conn else "", hexpand=True)
         browse_button = Gtk.Button(label="Browse…")
         browse_button.connect("clicked", self.on_browse_identity_file)
@@ -115,11 +121,13 @@ class ConnectionDialog(Adw.Window):
         identity_row.add_suffix(browse_button)
         details_group.add(identity_row)
 
-        self.key_passphrase = Adw.PasswordEntryRow(title="Key Passphrase", text=self.conn.key_passphrase if self.conn and self.conn.key_passphrase else "")
-        details_group.add(self.key_passphrase)
+        behavior_page = Adw.PreferencesPage()
+        self.stack.add_titled(behavior_page, "behavior", "Behavior")
 
-        behavior_group = Adw.PreferencesGroup(title="Behavior")
-        page.add(behavior_group)
+        behavior_group = Adw.PreferencesGroup()
+        behavior_page.add(behavior_group)
+
+        self.key_passphrase = Adw.PasswordEntryRow(title="Key Passphrase", text=self.conn.key_passphrase if self.conn and self.conn.key_passphrase else "")
 
         self.use_sudo = Adw.SwitchRow(
             title="Execute with sudo",
@@ -128,19 +136,19 @@ class ConnectionDialog(Adw.Window):
         )
         behavior_group.add(self.use_sudo)
 
+        self.password = Adw.PasswordEntryRow(title="Password", text=self.conn.password if self.conn and self.conn.password else "")
+        behavior_group.add(self.password)
+
         self.use_sshpass = Adw.SwitchRow(
             title="Use sshpass for password",
             subtitle="Pass the password via sshpass (less secure)",
             active=self.conn.use_sshpass if self.conn else False
         )
-        behavior_group.add(self.use_sshpass)
         self.use_sshpass.connect("notify::active", self._on_use_sshpass_toggled)
+        behavior_group.add(self.use_sshpass)
 
         is_sshpass_active = self.use_sshpass.get_active()
         self.password.set_sensitive(is_sshpass_active)
-        self.key_passphrase.set_sensitive(is_sshpass_active)
-
-        self.stack.add_titled(page, "connection", "Connection")
 
         self._build_ssh_options_page()
 
@@ -155,12 +163,11 @@ class ConnectionDialog(Adw.Window):
         self.remote_cmds_list = self._create_cmds_list_page(self.conn.remote_cmds if self.conn else {})
         self.stack.add_titled(self.remote_cmds_list, "remote_cmds", "Remote Commands")
 
-        return main_box
+        return split_view
 
     def _on_use_sshpass_toggled(self, switch, _):
         is_active = switch.get_active()
         self.password.set_sensitive(is_active)
-        self.key_passphrase.set_sensitive(is_active)
 
     def _create_script_list_page(self, commands):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
@@ -378,7 +385,7 @@ class ConnectionDialog(Adw.Window):
         except GLib.Error:
             pass
 
-    def get_data(self) -> connection.Connection:
+    def get_data(self) -> _connection.Connection:
         def get_scripts_from_list(page_box):
             scripts = []
             list_box = page_box.get_first_child().get_child().get_child()
@@ -411,7 +418,7 @@ class ConnectionDialog(Adw.Window):
             additional_options.append(entry.get_text())
             child = child.get_next_sibling()
 
-        new_conn = connection.Connection(
+        new_conn = _connection.Connection(
             name=self.name.get_text(),
             type=self.type_dropdown.get_selected_item().get_string(),
             folder=self.folder.get_text().strip('/') or "",
@@ -420,7 +427,7 @@ class ConnectionDialog(Adw.Window):
             user=self.user.get_text(),
             password=self.password.get_text() or None if self.use_sshpass.get_active() else None,
             identity_file=self.identity_file.get_text() or None,
-            key_passphrase=self.key_passphrase.get_text() or None if self.use_sshpass.get_active() else None,
+            key_passphrase=self.key_passphrase.get_text() or None,
             prepend_cmds=get_scripts_from_list(self.prepend_cmds_list),
             local_cmds=get_cmds_from_list(self.local_cmds_list),
             remote_cmds=get_cmds_from_list(self.remote_cmds_list),

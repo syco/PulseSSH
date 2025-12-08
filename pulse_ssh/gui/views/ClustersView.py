@@ -4,23 +4,23 @@ import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
+gi.require_version('Vte', '3.91')
 
 from gi.repository import Adw  # type: ignore
-from gi.repository import GLib  # type: ignore
 from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
+from gi.repository import GLib  # type: ignore
 from gi.repository import Gtk  # type: ignore
-from typing import TYPE_CHECKING
-import pulse_ssh.Utils as utils
-import pulse_ssh.data.Cluster as cluster
-import pulse_ssh.gui.dialogs.AppConfigDialog as app_config_dialog
-import pulse_ssh.gui.dialogs.ClusterDialog as cluster_dialog
-import pulse_ssh.gui.views.list_items.ClusterListItem as cluster_list_item
+import pulse_ssh.data.Cluster as _cluster
+import pulse_ssh.Globals as _globals
+import pulse_ssh.gui.dialogs.AppConfigDialog as _app_config_dialog
+import pulse_ssh.gui.dialogs.ClusterDialog as _cluster_dialog
+import pulse_ssh.gui.Globals as _gui_globals
+import pulse_ssh.gui.views.list_items.ClusterListItem as _cluster_list_item
+import pulse_ssh.Utils as _utils
 
-if TYPE_CHECKING:
-    from pulse_ssh.gui.MainWindow import MainWindow
 class ClustersView():
-    def __init__(self, app_window: "MainWindow"):
+    def __init__(self, app_window):
         super().__init__()
         self.app_window = app_window
 
@@ -47,7 +47,7 @@ class ClustersView():
         label.set_text(item.name)
 
     def getAdwToolbarView(self) -> Adw.ToolbarView:
-        self.root_store = Gio.ListStore(item_type=cluster_list_item.ClusterListItem)
+        self.root_store = Gio.ListStore(item_type=_cluster_list_item.ClusterListItem)
 
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self.setup_list_item)
@@ -106,7 +106,7 @@ class ClustersView():
         return toolbar_view
 
     def open_local_terminal(self, button):
-        self.app_window.open_connection_tab(utils.local_connection)
+        _gui_globals.layout_manager.open_connection_tab(_utils.local_connection)
 
     def on_key_pressed(self, controller, keyval, keycode, state):
         if self.filter_entry.has_focus():
@@ -138,8 +138,8 @@ class ClustersView():
 
     def populate_tree(self):
         self.root_store.remove_all()
-        for cluster in sorted(self.app_window.clusters.values(), key=lambda c: c.name.lower()):
-            self.root_store.append(cluster_list_item.ClusterListItem(cluster))
+        for cluster in sorted(_globals.clusters.values(), key=lambda c: c.name.lower()):
+            self.root_store.append(_cluster_list_item.ClusterListItem(cluster))
 
     def filter_changed_callback(self, entry):
         if self.filter:
@@ -213,15 +213,15 @@ class ClustersView():
         popover.popup()
 
     def open_add_modal(self, button):
-        dlg = cluster_dialog.ClusterDialog(self.app_window, self.app_window.connections)
+        dlg = _cluster_dialog.ClusterDialog(self.app_window, _globals.connections)
         dlg.connect("response", self.add_callback)
         dlg.present()
 
     def add_callback(self, dialog, response_id):
         if response_id == Gtk.ResponseType.OK:
             cluster = dialog.get_data()
-            self.app_window.clusters[cluster.uuid] = cluster
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            _globals.clusters[cluster.uuid] = cluster
+            _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
             self.populate_tree()
         dialog.destroy()
 
@@ -237,20 +237,20 @@ class ClustersView():
         cluster_to_edit = item.cluster_data
         self.open_edit_modal(None, None, cluster_to_edit)
 
-    def open_edit_modal(self, action, param, cluster_to_edit: cluster.Cluster):
-        dlg = cluster_dialog.ClusterDialog(self.app_window, self.app_window.connections, cluster_to_edit)
+    def open_edit_modal(self, action, param, cluster_to_edit: _cluster.Cluster):
+        dlg = _cluster_dialog.ClusterDialog(self.app_window, _globals.connections, cluster_to_edit)
         dlg.connect("response", self.edit_callback)
         dlg.present()
 
     def edit_callback(self, dialog, response_id):
         if response_id == Gtk.ResponseType.OK:
             new_cluster = dialog.get_data()
-            self.app_window.clusters[new_cluster.uuid] = new_cluster
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            _globals.clusters[new_cluster.uuid] = new_cluster
+            _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
             self.populate_tree()
         dialog.destroy()
 
-    def open_remove_modal(self, action, param, cluster_to_remove: cluster.Cluster):
+    def open_remove_modal(self, action, param, cluster_to_remove: _cluster.Cluster):
         dialog = Adw.MessageDialog(
             transient_for=self.app_window,
             modal=True,
@@ -265,24 +265,25 @@ class ClustersView():
 
     def remove_callback(self, dialog, response_id, cluster):
         if response_id == "remove":
-            if cluster.uuid in self.app_window.clusters:
-                del self.app_window.clusters[cluster.uuid]
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            if cluster.uuid in _globals.clusters:
+                del _globals.clusters[cluster.uuid]
+            _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
             self.populate_tree()
         dialog.destroy()
 
     def open_appconfig_modal(self, button):
-        dlg = app_config_dialog.AppConfigDialog(self.app_window, self.app_window.app_config, self.app_window.about_info)
+        dlg = _app_config_dialog.AppConfigDialog(self.app_window, _globals.app_config, _globals.about_info)
         dlg.connect("response", self.appconfig_dialog_callback)
         dlg.present()
 
     def appconfig_dialog_callback(self, dialog, response_id):
         if response_id == Gtk.ResponseType.OK or response_id == Gtk.ResponseType.APPLY:
-            self.app_window.app_config = dialog.get_data()
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            _globals.app_config = dialog.get_data()
+            _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
             self.app_window.apply_config_settings()
-            for terminal in self.app_window._find_all_terminals_in_widget(self.app_window.notebook):
-                terminal.apply_theme()
+            for notebook in _gui_globals.all_notebooks:
+                for terminal in self.app_window._find_all_terminals_in_widget(notebook):
+                    terminal.apply_theme()
 
         if response_id == Gtk.ResponseType.OK or response_id == Gtk.ResponseType.CANCEL:
             dialog.destroy()
@@ -297,8 +298,8 @@ class ClustersView():
 
         self.open_cluster_in_tab(None, None, cluster)
 
-    def open_cluster_in_tab(self, action, param, cluster: cluster.Cluster):
-        conns_to_start = [self.app_window.connections[uuid] for uuid in cluster.connection_uuids if uuid in self.app_window.connections]
+    def open_cluster_in_tab(self, action, param, cluster: _cluster.Cluster):
+        conns_to_start = [_globals.connections[uuid] for uuid in cluster.connection_uuids if uuid in _globals.connections]
 
         if not conns_to_start:
             self.app_window.toast_overlay.add_toast(Adw.Toast.new("Cluster has no valid connections."))

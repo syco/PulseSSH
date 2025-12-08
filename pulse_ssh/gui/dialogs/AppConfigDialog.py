@@ -2,19 +2,20 @@
 
 import gi
 gi.require_version('Adw', '1')
+gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
+gi.require_version('Vte', '3.91')
 
 from gi.repository import Adw  # type: ignore
-from gi.repository import GLib  # type: ignore
-from gi.repository import GObject  # type: ignore
 from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
+from gi.repository import GObject  # type: ignore
 from gi.repository import Gtk  # type: ignore
 from gi.repository import Pango  # type: ignore
 import os
-import pulse_ssh.Utils as utils
-import pulse_ssh.data.AppConfig as app_config
-import pulse_ssh.gui.views.list_items.StringObject as string_object
+import pulse_ssh.data.AppConfig as _app_config
+import pulse_ssh.gui.views.list_items.StringObject as _string_object
+import pulse_ssh.Utils as _utils
 
 SHELL_PROGRAMS = [
     "bash",
@@ -47,10 +48,8 @@ class AppConfigDialog(Adw.Window):
         'response': (GObject.SignalFlags.RUN_FIRST, None, (int,))
     }
 
-    def __init__(self, parent, config: app_config.AppConfig, about_info: dict):
+    def __init__(self, parent, config: _app_config.AppConfig, about_info: dict):
         super().__init__(title="Application Configuration", transient_for=parent, modal=True)
-        screen_height = Gdk.Display.get_default().get_primary_monitor().get_geometry().height
-        self.set_default_size(700, screen_height / 1.3)
 
         cancel_button = Gtk.Button.new_with_mnemonic("_Cancel")
         cancel_button.connect("clicked", lambda w: self.emit("response", Gtk.ResponseType.CANCEL))
@@ -100,29 +99,38 @@ class AppConfigDialog(Adw.Window):
             entries.extend(self._find_entries(widget.get_child()))
         return entries
 
-    def _build_ui(self, config: app_config.AppConfig, about_info: dict):
-        main_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    def _build_ui(self, config: _app_config.AppConfig, about_info: dict):
+        split_view = Adw.NavigationSplitView()
+        split_view.set_min_sidebar_width(200)
+        split_view.set_max_sidebar_width(300)
+        split_view.set_collapsed(False)
 
         sidebar = Gtk.StackSidebar()
         self.stack = Gtk.Stack()
+        self.stack.set_size_request(600, 400)
+        self.stack.set_hhomogeneous(True)
+        self.stack.set_vhomogeneous(True)
         sidebar.set_stack(self.stack)
 
-        main_box.append(sidebar)
-        main_box.append(self.stack)
+        split_view.set_sidebar(Adw.NavigationPage.new(sidebar, "Categories"))
+        split_view.set_content(Adw.NavigationPage.new(self.stack, "Settings"))
 
-        self._build_general_page(config)
+        self._build_appearance_page(config)
+        self._build_behavior_page(config)
+        self._build_scrolling_page(config)
         self._build_ssh_page(config)
         self._build_binaries_page(config)
         self._build_shortcuts_page()
         self._build_variables_page()
         self._build_about_page(about_info)
 
-        return main_box
+        return split_view
 
-    def _build_general_page(self, config: app_config.AppConfig):
+    def _build_appearance_page(self, config: _app_config.AppConfig):
         page = Adw.PreferencesPage()
+        self.stack.add_titled(page, "appearance", "Appearance")
 
-        appearance_group = Adw.PreferencesGroup(title="Appearance")
+        appearance_group = Adw.PreferencesGroup()
         page.add(appearance_group)
 
         self.font_chooser = Gtk.FontDialogButton(dialog=Gtk.FontDialog(modal=True))
@@ -133,14 +141,14 @@ class AppConfigDialog(Adw.Window):
         font_row.set_activatable_widget(self.font_chooser)
         appearance_group.add(font_row)
 
-        self.themes = utils.load_themes()
+        self.themes = _utils.load_themes()
         theme_names = sorted(list(self.themes.keys()))
 
-        theme_model = Gio.ListStore.new(string_object.StringObject)
+        theme_model = Gio.ListStore.new(_string_object.StringObject)
         for name in theme_names:
-            theme_model.append(string_object.StringObject(name=name))
+            theme_model.append(_string_object.StringObject(name=name))
 
-        theme_expression = Gtk.PropertyExpression.new(string_object.StringObject, None, "name")
+        theme_expression = Gtk.PropertyExpression.new(_string_object.StringObject, None, "name")
 
         theme_filter = Gtk.StringFilter.new(theme_expression)
         theme_filter.set_ignore_case(True)
@@ -183,7 +191,11 @@ class AppConfigDialog(Adw.Window):
         self.sidebar_on_right = Adw.SwitchRow(title="Show Sidebar on the Right", active=config.sidebar_on_right)
         appearance_group.add(self.sidebar_on_right)
 
-        behavior_group = Adw.PreferencesGroup(title="Behavior")
+    def _build_behavior_page(self, config: _app_config.AppConfig):
+        page = Adw.PreferencesPage()
+        self.stack.add_titled(page, "behavior", "Behavior")
+
+        behavior_group = Adw.PreferencesGroup()
         page.add(behavior_group)
 
         self.shell_program = Adw.ComboRow(title="Shell", model=Gtk.StringList.new(SHELL_PROGRAMS))
@@ -204,7 +216,11 @@ class AppConfigDialog(Adw.Window):
         self.audible_bell = Adw.SwitchRow(title="Audible Bell", subtitle="Enable the terminal bell sound", active=config.audible_bell)
         behavior_group.add(self.audible_bell)
 
-        scrolling_group = Adw.PreferencesGroup(title="Scrolling")
+    def _build_scrolling_page(self, config: _app_config.AppConfig):
+        page = Adw.PreferencesPage()
+        self.stack.add_titled(page, "scrolling", "Scrolling")
+
+        scrolling_group = Adw.PreferencesGroup()
         page.add(scrolling_group)
 
         scrollback_adjustment = Gtk.Adjustment(
@@ -226,9 +242,7 @@ class AppConfigDialog(Adw.Window):
         self.scroll_on_insert = Adw.SwitchRow(title="Scroll on Insert (deprecated)", subtitle="This option may have no effect", active=config.scroll_on_insert)
         scrolling_group.add(self.scroll_on_insert)
 
-        self.stack.add_titled(page, "general", "General")
-
-    def _build_ssh_page(self, config: app_config.AppConfig):
+    def _build_ssh_page(self, config: _app_config.AppConfig):
         page_grid = Gtk.Grid(margin_start=10, margin_end=10, margin_top=10, margin_bottom=10, row_spacing=6, column_spacing=6)
 
         self.ssh_forward_agent = Gtk.CheckButton(label="Enable Agent Forwarding (-A)", active=config.ssh_forward_agent)
@@ -254,7 +268,7 @@ class AppConfigDialog(Adw.Window):
         self.remote_cmds_list = self._create_cmds_list_page(config.remote_cmds)
         self.stack.add_titled(self.remote_cmds_list, "remote_cmds", "Remote Commands")
 
-    def _build_binaries_page(self, config: app_config.AppConfig):
+    def _build_binaries_page(self, config: _app_config.AppConfig):
         page_grid = Gtk.Grid(margin_start=10, margin_end=10, margin_top=10, margin_bottom=10, row_spacing=6, column_spacing=6)
 
         self.ssh_path_entry = Gtk.Entry(text=config.ssh_path, activates_default=True)
@@ -341,7 +355,7 @@ class AppConfigDialog(Adw.Window):
         page_box.set_valign(Gtk.Align.CENTER)
         page_box.set_halign(Gtk.Align.CENTER)
 
-        icon_path = os.path.join(utils.project_root, 'res', 'icons', 'hicolor', '512x512', 'apps', 'pulse_ssh.png')
+        icon_path = os.path.join(_utils.project_root, 'res', 'icons', 'hicolor', '512x512', 'apps', 'pulse_ssh.png')
 
         if os.path.exists(icon_path):
             icon = Gtk.Image.new_from_file(icon_path)
@@ -451,7 +465,7 @@ class AppConfigDialog(Adw.Window):
             list_box.insert(dragged_row, pos)
         return True
 
-    def get_data(self) -> app_config.AppConfig:
+    def get_data(self) -> _app_config.AppConfig:
         font_desc = self.font_chooser.get_font_desc()
         font_size = 12 if font_desc.get_size_is_absolute() else font_desc.get_size() / Pango.SCALE
 
@@ -483,7 +497,7 @@ class AppConfigDialog(Adw.Window):
                 idx += 1
             return scripts
 
-        return app_config.AppConfig(
+        return _app_config.AppConfig(
             font_family=font_desc.get_family(),
             font_size=int(font_size),
             theme=self.theme.get_selected_item().name,
