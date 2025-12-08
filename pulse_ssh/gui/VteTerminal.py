@@ -24,7 +24,7 @@ import pulse_ssh.gui.Globals as _gui_globals
 import pulse_ssh.Utils as _utils
 
 class VteTerminal(Vte.Terminal):
-    def __init__(self, app_window, connection: _connection.Connection, cluster_id: Optional[str] = None):
+    def __init__(self, app_window, connection: _connection.Connection, cluster_id: Optional[str] = None, cluster_name: Optional[str] = None):
         super().__init__()
         self.app_window = app_window
 
@@ -100,12 +100,13 @@ class VteTerminal(Vte.Terminal):
 
         self.pulse_conn = connection
         self.pulse_cluster_id = cluster_id
+        self.pulse_cluster_name = cluster_name
 
         self.connect_time = GLib.get_monotonic_time()
         self.cluster_key_controller = Gtk.EventControllerKey()
 
-        if cluster_id:
-            _gui_globals.cluster_manager.join_cluster(self, cluster_id)
+        if cluster_id and cluster_name:
+            _gui_globals.cluster_manager.join_cluster(self, cluster_id, cluster_name)
 
         self.connected = True
 
@@ -141,6 +142,7 @@ class VteTerminal(Vte.Terminal):
 
         connection = self.pulse_conn
         cluster_id = self.pulse_cluster_id
+        cluster_name = self.pulse_cluster_name
 
         def wait_for_key_behavior():
             message = (
@@ -156,7 +158,7 @@ class VteTerminal(Vte.Terminal):
             def on_key_pressed(controller, keyval, keycode, state):
                 if keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
                     self.remove_controller(evk)
-                    _gui_globals.layout_manager.replace_terminal(self, _gui_globals.layout_manager.create_terminal(connection, cluster_id))
+                    _gui_globals.layout_manager.replace_terminal(self, _gui_globals.layout_manager.create_terminal(connection, cluster_id, cluster_name))
                     return True
                 if keyval == Gdk.KEY_Escape:
                     self.remove_controller(evk)
@@ -174,7 +176,7 @@ class VteTerminal(Vte.Terminal):
                 self.add_toast(Adw.Toast.new(f"Restart loop detected for '{connection.name}'. Pausing auto-restart."))
                 wait_for_key_behavior()
             else:
-                _gui_globals.layout_manager.replace_terminal(self, _gui_globals.layout_manager.create_terminal(connection))
+                _gui_globals.layout_manager.replace_terminal(self, _gui_globals.layout_manager.create_terminal(connection, cluster_id, cluster_name))
         elif behavior == "wait_for_key":
             wait_for_key_behavior()
 
@@ -203,11 +205,11 @@ class VteTerminal(Vte.Terminal):
         return submenu
 
     def _create_new_cluster(self, terminal):
-        def on_name_received(cluster_name):
-            if cluster_name:
-                _gui_globals.cluster_manager.join_cluster(terminal, cluster_name)
+        def on_name_received(cluster_name, cluster_id):
+            if cluster_name and cluster_id:
+                _gui_globals.cluster_manager.join_cluster(terminal, cluster_id, cluster_name)
 
-        _gui_globals._ask_for_cluster_name(self.get_ancestor(Gtk.ApplicationWindow), on_name_received)
+        _gui_globals.ask_for_cluster_name(self.get_ancestor(Gtk.ApplicationWindow), on_name_received)
 
     def _create_cluster_submenu(self, terminal, action_group):
         submenu = Gio.Menu()
@@ -220,12 +222,11 @@ class VteTerminal(Vte.Terminal):
         if _gui_globals.active_clusters:
             submenu.append_section(None, Gio.Menu())
             join_menu = Gio.Menu()
-            for cluster_id in _gui_globals.active_clusters.keys():
-                cluster_name = f"Cluster ({cluster_id[:4]})"
+            for cluster_id, cluster in _gui_globals.active_clusters.items():
                 join_action = Gio.SimpleAction.new(f"join_cluster_{cluster_id}", None)
-                join_action.connect("activate", lambda a, p, t=terminal, cid=cluster_id: _gui_globals.cluster_manager.join_cluster(t, cid))
+                join_action.connect("activate", lambda a, p, t=terminal, cid=cluster_id, cna=cluster.name: _gui_globals.cluster_manager.join_cluster(t, cid, cna))
                 action_group.add_action(join_action)
-                join_menu.append(cluster_name, f"term.join_cluster_{cluster_id}")
+                join_menu.append(cluster.name, f"term.join_cluster_{cluster_id}")
             submenu.append_submenu("Join Existing Cluster", join_menu)
 
         if terminal.pulse_cluster_id:
@@ -368,7 +369,7 @@ class VteTerminal(Vte.Terminal):
 
     def run_remote_cmd(self, action, param, cmd):
         if self.pulse_cluster_id and self.pulse_cluster_id in _gui_globals.active_clusters:
-            for terminal in _gui_globals.active_clusters[self.pulse_cluster_id]:
+            for terminal in _gui_globals.active_clusters[self.pulse_cluster_id].terminals:
                 substituted_cmd = _utils.substitute_variables(cmd, terminal.pulse_conn)
                 terminal.feed_child(f"{substituted_cmd}\n".encode('utf-8'))
         else:
@@ -377,7 +378,7 @@ class VteTerminal(Vte.Terminal):
 
     def paste_clipboard(self):
         if self.pulse_cluster_id and self.pulse_cluster_id in _gui_globals.active_clusters:
-            for terminal in _gui_globals.active_clusters[self.pulse_cluster_id]:
+            for terminal in _gui_globals.active_clusters[self.pulse_cluster_id].terminals:
                 if terminal != self:
                     super(VteTerminal, terminal).paste_clipboard()
         super().paste_clipboard()
@@ -387,7 +388,7 @@ class VteTerminal(Vte.Terminal):
 
     def paste_primary(self):
         if self.pulse_cluster_id and self.pulse_cluster_id in _gui_globals.active_clusters:
-            for terminal in _gui_globals.active_clusters[self.pulse_cluster_id]:
+            for terminal in _gui_globals.active_clusters[self.pulse_cluster_id].terminals:
                 if terminal != self:
                     super(VteTerminal, terminal).paste_primary()
 
@@ -433,7 +434,7 @@ class VteTerminal(Vte.Terminal):
             key_bytes = bytes([keyval - Gdk.KEY_a + 1])
 
         if key_bytes:
-            for t in _gui_globals.active_clusters[cluster_id]:
+            for t in _gui_globals.active_clusters[cluster_id].terminals:
                 if t != self:
                     t.feed_child(key_bytes)
             return False

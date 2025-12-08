@@ -305,6 +305,9 @@ class ClustersView():
             self.app_window.toast_overlay.add_toast(Adw.Toast.new("Cluster has no valid connections."))
             return
 
-        self.app_window.open_all_connections_split(None, None, conns_to_start, True, cluster.name) if cluster.open_mode == "split" else self.app_window.open_all_connections_in_tabs(None, None, conns_to_start, True, cluster.name)
+        if cluster.open_mode == "split":
+            self.app_window.open_all_connections_split(None, None, conns_to_start, True, cluster.uuid, cluster.name)
+        else:
+            self.app_window.open_all_connections_in_tabs(None, None, conns_to_start, True, cluster.uuid, cluster.name)
 
         self.filter_entry.set_text("")

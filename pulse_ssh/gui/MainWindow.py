@@ -11,7 +11,6 @@ from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
 from gi.repository import GLib  # type: ignore
 from gi.repository import Gtk  # type: ignore
-from gi.repository import Vte  # type: ignore
 from typing import List
 from typing import Optional
 import math
@@ -311,30 +310,30 @@ class MainWindow(Gtk.ApplicationWindow):
         terminal = self._find_first_terminal_in_widget(content)
         self.connections_view.select_connection_from_terminal(terminal)
 
-    def open_all_connections_in_tabs(self, action, param, conns_to_start: Optional[List[_connection.Connection]], clustered=False, cluster_name=None):
+    def open_all_connections_in_tabs(self, action, param, conns_to_start: Optional[List[_connection.Connection]], clustered=False, cluster_id: Optional[str] = None, cluster_name: Optional[str] = None):
         if not conns_to_start:
             return
 
-        def do_open(cluster_id=None):
+        def do_open(c_id: Optional[str] = None, c_name: Optional[str] = None):
             if clustered and len(conns_to_start) > 1:
-                if not cluster_id:
+                if not c_id or not c_name:
                     return
                 for conn in conns_to_start:
-                    _gui_globals.layout_manager.open_connection_tab(conn, cluster_id)
+                    _gui_globals.layout_manager.open_connection_tab(conn, c_id, c_name)
             else:
                 for conn in conns_to_start:
                     _gui_globals.layout_manager.open_connection_tab(conn)
 
         if len(conns_to_start) > 1:
-            if cluster_name:
-                do_open(cluster_name)
+            if cluster_name and cluster_id:
+                do_open(cluster_id, cluster_name)
                 return
             elif clustered:
-                _gui_globals._ask_for_cluster_name(self, do_open)
+                _gui_globals.ask_for_cluster_name(self, do_open)
                 return
         do_open()
 
-    def open_all_connections_split(self, action, param, conns_to_start: Optional[List[_connection.Connection]], clustered=False, cluster_name=None):
+    def open_all_connections_split(self, action, param, conns_to_start: Optional[List[_connection.Connection]], clustered=False, cluster_id: Optional[str] = None, cluster_name: Optional[str] = None):
         if not conns_to_start:
             return
 
@@ -408,12 +407,12 @@ class MainWindow(Gtk.ApplicationWindow):
             GLib.idle_add(_set_paned_position, paned, len(start_items), len(items), is_vertical)
             return paned
 
-        def do_open(cluster_id=None):
+        def do_open(c_id: Optional[str] = None, c_name: Optional[str] = None):
             if clustered and len(conns_to_start) > 1:
-                if not cluster_id:
+                if not c_id or not c_name:
                     return
 
-            terminals = [_gui_globals.layout_manager.create_terminal(conn, cluster_id) for conn in conns_to_start]
+            terminals = [_gui_globals.layout_manager.create_terminal(conn, c_id, c_name) for conn in conns_to_start]
 
             grid_rows = [build_grid([terminals[r * cols + c] for c in range(cols) if r * cols + c < num_conns], False, cols) for r in range(rows)]
             final_grid = build_grid(grid_rows, True, rows)
@@ -425,11 +424,11 @@ class MainWindow(Gtk.ApplicationWindow):
             _gui_globals.all_notebooks[0].set_selected_page(page)
 
         if len(conns_to_start) > 1:
-            if cluster_name:
-                do_open(cluster_name)
+            if cluster_name and cluster_id:
+                do_open(cluster_id, cluster_name)
                 return
             elif clustered:
-                _gui_globals._ask_for_cluster_name(self, do_open)
+                _gui_globals.ask_for_cluster_name(self, do_open)
                 return
         do_open()
 

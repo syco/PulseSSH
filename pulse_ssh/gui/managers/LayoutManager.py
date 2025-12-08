@@ -40,8 +40,8 @@ class LayoutManager:
 
         return paned
 
-    def open_connection_tab(self, conn: _connection.Connection, cluster_id: Optional[str] = None):
-        terminal = _gui_globals.layout_manager.create_terminal(conn, cluster_id)
+    def open_connection_tab(self, conn: _connection.Connection, cluster_id: Optional[str] = None, cluster_name: Optional[str] = None):
+        terminal = _gui_globals.layout_manager.create_terminal(conn, cluster_id, cluster_name)
 
         boxy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         boxy.append(terminal)
@@ -49,11 +49,11 @@ class LayoutManager:
         _gui_globals.all_notebooks[0].set_selected_page(page)
         self.app_window.updatePageTitle(page)
 
-    def create_terminal(self, conn: _connection.Connection, cluster_id: Optional[str] = None) -> Gtk.ScrolledWindow:
+    def create_terminal(self, conn: _connection.Connection, cluster_id: Optional[str] = None, cluster_name: Optional[str] = None) -> Gtk.ScrolledWindow:
         if conn.uuid in _globals.connections:
             conn = _globals.connections[conn.uuid]
 
-        terminal = _vte_terminal.VteTerminal(self.app_window, conn, cluster_id)
+        terminal = _vte_terminal.VteTerminal(self.app_window, conn, cluster_id, cluster_name)
 
         scrolled = Gtk.ScrolledWindow()
         if _globals.app_config.scrollbar_visible:

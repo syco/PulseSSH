@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from typing import Optional
 import argparse
 import os
 import pulse_ssh.Globals as _globals
@@ -10,7 +11,7 @@ class VersionInfoAction(argparse.Action):
     def __init__(self, option_strings, dest, nargs=0, **kwargs):
         super(VersionInfoAction, self).__init__(option_strings, dest, nargs=nargs, **kwargs)
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(self, parser, namespace, values, option_string: Optional[str] = None):
         print(f"PulseSSH {_globals.__version__} - {_globals.about_info['description']}.")
         print(f"Copyright (c) 2025 {_globals.about_info['developer']}.")
         print(f"Find the source code at: {_globals.about_info['website']}")
