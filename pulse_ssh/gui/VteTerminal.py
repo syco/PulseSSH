@@ -389,8 +389,6 @@ class VteTerminal(Vte.Terminal):
             for terminal in _gui_globals.active_clusters[self.pulse_cluster_id]:
                 if terminal != self:
                     super(VteTerminal, terminal).paste_primary()
-        else:
-            super().paste_primary()
 
     def open_sftp_tab(self, action, param):
         clone = self.pulse_conn.get_cloned_connection()
