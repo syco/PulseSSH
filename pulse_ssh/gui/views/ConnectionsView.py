@@ -472,18 +472,29 @@ class ConnectionsView():
                 tree_row = model.get_item(i)
                 if not tree_row:
                     continue
-                item = tree_row.get_item()
-                if item and item.connection_data and item.connection_data.uuid == uuid_to_find:
-                    return i
-            return -1
 
-        position = find_item_position(self.filter_model, conn_uuid)
+                item = tree_row.get_item() if isinstance(tree_row, Gtk.TreeListRow) else tree_row
+                tree_row = tree_row if isinstance(tree_row, Gtk.TreeListRow) else None
 
-        if position != -1:
-            self.selection_model.unselect_all()
-            self.selection_model.select_item(position, True)
-            self.list_view.scroll_to(position, Gtk.ListScrollFlags.FOCUS, None)
-        else:
+                if not item:
+                    continue
+
+                if item.connection_data and item.connection_data.uuid == uuid_to_find:
+                    for j in range(self.filter_model.get_n_items()):
+                        filtered_row = self.filter_model.get_item(j)
+                        if filtered_row and filtered_row.get_item() == item:
+                            self.selection_model.unselect_all()
+                            self.selection_model.select_item(j, True)
+                            self.list_view.scroll_to(j, Gtk.ListScrollFlags.FOCUS, None)
+                            return True
+
+                children_model = tree_row.get_children() if tree_row else item.children_store
+                if children_model and find_item_position(children_model, uuid_to_find):
+                    if tree_row: tree_row.set_expanded(True)
+                    return True
+            return False
+
+        if not find_item_position(self.tree_store, conn_uuid):
             self.selection_model.unselect_all()
 
     def item_activated_callback(self, list_view, position):

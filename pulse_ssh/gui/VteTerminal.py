@@ -76,6 +76,7 @@ class VteTerminal(Vte.Terminal):
                         terminal.disconnect(handler_id[0])
                         handler_id[0] = None
                     terminal.grab_focus()
+                    self.app_window.connections_view.select_connection_from_terminal(terminal)
 
                     if connection.type == "ssh":
                         self.start_orchestrator_script()
