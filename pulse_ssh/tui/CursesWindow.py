@@ -1,16 +1,15 @@
 #!/usr/bin/python
 
 import curses
-import pulse_ssh.Utils as utils
+import pulse_ssh.Globals as _globals
+import pulse_ssh.Utils as _utils
 import signal
 import subprocess
 import sys
 import traceback
 
 class CursesWindow:
-    def __init__(self, config_dir: str):
-        self.config_dir = config_dir
-        self.app_config, self.connections, self.clusters = utils.load_app_config(self.config_dir)
+    def __init__(self):
         self.original_tree = self._build_tree_structure()
 
     def run(self):
@@ -27,7 +26,7 @@ class CursesWindow:
     def _build_tree_structure(self):
         tree = {}
 
-        for conn_uuid, conn in self.connections.items():
+        for conn_uuid, conn in _globals.connections.items():
             folder = conn.folder
             if not folder:
                 folder = 'Uncategorized'
@@ -59,7 +58,7 @@ class CursesWindow:
                 if sub_result:
                     result[key] = sub_result
             else:
-                conn_details = self.connections.get(value)
+                conn_details = _globals.connections.get(value)
                 if conn_details and (query.lower() in conn_details.name.lower() or query.lower() in conn_details.host.lower()):
                     result[key] = value
         return result
@@ -162,13 +161,15 @@ class CursesWindow:
                         collapsed.add(selected_path)
 
             elif key == 10:
-                conn_details = self.connections.get(uuid_to_execute)
-                final_cmd, all_remote_scripts, remote_script_paths, proxy_port = utils.build_ssh_command(self.app_config, conn_details)
+                if uuid_to_execute:
+                    conn_details = _globals.connections.get(uuid_to_execute)
+                    if conn_details:
+                        final_cmd, proxy_port = _utils.build_ssh_command(_globals.app_config, conn_details)
 
-                if final_cmd:
-                    curses.endwin()
-                    subprocess.run(final_cmd, shell=True)
-                    curses.doupdate()
+                        if final_cmd:
+                            curses.endwin()
+                            subprocess.run(final_cmd, shell=True)
+                            curses.doupdate()
 
             elif key == curses.KEY_BACKSPACE or key == 127:
                 current_query = current_query[:-1]

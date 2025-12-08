@@ -8,15 +8,15 @@ PulseSSH is a modern SSH terminal manager designed for productivity and ease of 
 
 ## Features
 
-- **Multi-Panel Terminal Layouts**  
+- **Multi-Panel Terminal Layouts**
   Organize and view several terminals in split or tab layouts, switching easily between views.
 
-- **Connection Management**  
+- **Connection Management**
   - Save SSH and local connections with custom names, credentials, and options.
   - Group connections in folders for quick access.
   - Configure clusters for batch or parallel SSH sessions.
 
-- **Cluster Sessions**  
+- **Cluster Sessions**
   - Assign multiple connections to a cluster and launch them in tabs or panels.
   - Filter and select connections with ease.
 

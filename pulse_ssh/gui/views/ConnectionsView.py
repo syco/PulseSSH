@@ -4,24 +4,24 @@ import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
+gi.require_version('Vte', '3.91')
 
 from gi.repository import Adw  # type: ignore
-from gi.repository import GLib  # type: ignore
-from gi.repository import GObject  # type: ignore
 from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
+from gi.repository import GLib  # type: ignore
+from gi.repository import GObject  # type: ignore
 from gi.repository import Gtk  # type: ignore
-from typing import TYPE_CHECKING
-import pulse_ssh.Utils as utils
-import pulse_ssh.data.Connection as connection
-import pulse_ssh.ui.dialogs.AppConfigDialog as app_config_dialog
-import pulse_ssh.ui.dialogs.ConnectionDialog as connection_dialog
-import pulse_ssh.ui.views.list_items.ConnectionListItem as connection_list_item
+import pulse_ssh.data.Connection as _connection
+import pulse_ssh.Globals as _globals
+import pulse_ssh.gui.dialogs.AppConfigDialog as _app_config_dialog
+import pulse_ssh.gui.dialogs.ConnectionDialog as _connection_dialog
+import pulse_ssh.gui.Globals as _gui_globals
+import pulse_ssh.gui.views.list_items.ConnectionListItem as _connection_list_item
+import pulse_ssh.Utils as _utils
 
-if TYPE_CHECKING:
-    from pulse_ssh.ui.MainWindow import MainWindow
 class ConnectionsView():
-    def __init__(self, app_window: "MainWindow"):
+    def __init__(self, app_window):
         super().__init__()
         self.app_window = app_window
 
@@ -43,7 +43,7 @@ class ConnectionsView():
         click_gesture.connect("pressed", self.build_menu, list_item)
         expander.add_controller(click_gesture)
 
-    def create_submodel(self, item: connection_list_item.ConnectionListItem):
+    def create_submodel(self, item: _connection_list_item.ConnectionListItem):
         return item.children_store
 
     def bind_list_item(self, factory, list_item):
@@ -70,7 +70,7 @@ class ConnectionsView():
         drop_target.connect("drop", lambda target, value, x, y: self.item_dropped_callback(target, value, x, y, list_item))
 
     def getAdwToolbarView(self) -> Adw.ToolbarView:
-        self.root_store = Gio.ListStore(item_type=connection_list_item.ConnectionListItem)
+        self.root_store = Gio.ListStore(item_type=_connection_list_item.ConnectionListItem)
 
         self.tree_store = Gtk.TreeListModel.new(
             root=self.root_store,
@@ -136,7 +136,7 @@ class ConnectionsView():
         return toolbar_view
 
     def open_local_terminal(self, button):
-        self.app_window.open_connection_tab(utils.local_connection)
+        _gui_globals.layout_manager.open_connection_tab(_utils.local_connection)
 
     def on_key_pressed(self, controller, keyval, keycode, state):
         if self.filter_entry.has_focus():
@@ -169,20 +169,20 @@ class ConnectionsView():
     def populate_tree(self):
         self.root_store.remove_all()
 
-        def find_or_create_folder(parent_gio_list_store: Gio.ListStore, folder_name, parent_path: str) -> connection_list_item.ConnectionListItem:
+        def find_or_create_folder(parent_gio_list_store: Gio.ListStore, folder_name, parent_path: str) -> _connection_list_item.ConnectionListItem:
             for i in range(parent_gio_list_store.get_n_items()):
                 item = parent_gio_list_store.get_item(i)
                 if not item.connection_data and item.name == folder_name:
                     return item
 
             new_path = f"{parent_path}/{folder_name}" if parent_path else folder_name
-            new_child_gio_list_store = Gio.ListStore(item_type=connection_list_item.ConnectionListItem)
-            new_folder_item = connection_list_item.ConnectionListItem(folder_name, None, new_child_gio_list_store, new_path)
+            new_child_gio_list_store = Gio.ListStore(item_type=_connection_list_item.ConnectionListItem)
+            new_folder_item = _connection_list_item.ConnectionListItem(folder_name, None, new_child_gio_list_store, new_path)
             parent_gio_list_store.append(new_folder_item)
             return new_folder_item
 
-        for c in sorted(self.app_window.connections.values(), key=utils.connectionsSortFunction):
-            listItem = connection_list_item.ConnectionListItem(c.name, c)
+        for c in sorted(_globals.connections.values(), key=_utils.connectionsSortFunction):
+            listItem = _connection_list_item.ConnectionListItem(c.name, c)
             if listItem:
                 if c.folder:
                     path_parts = c.folder.split('/')
@@ -228,7 +228,7 @@ class ConnectionsView():
 
         node = tree_row.get_item()
         if node and node.connection_data:
-            self.app_window.open_connection_tab(node.connection_data)
+            _gui_globals.layout_manager.open_connection_tab(node.connection_data)
             self.filter_entry.set_text("")
 
     def filter_list_function(self, item):
@@ -355,30 +355,30 @@ class ConnectionsView():
 
         dragged_conn_uuids = value.split('\n')
         for uuid_str in dragged_conn_uuids:
-            dragged_conn = self.app_window.connections.get(uuid_str)
+            dragged_conn = _globals.connections.get(uuid_str)
 
             if dragged_conn:
                 dragged_conn.folder = target_folder
             else:
                 move_folder = uuid_str.split('/')[-1]
-                for id, con in self.app_window.connections.items():
+                for id, con in _globals.connections.items():
                     if con.folder.startswith(uuid_str):
                         con.folder = con.folder.replace(uuid_str, f"{target_folder}/{move_folder}", 1)
 
-        utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+        _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
         self.populate_tree()
         return True
 
     def open_add_modal(self, button):
-        dlg = connection_dialog.ConnectionDialog(self.app_window)
+        dlg = _connection_dialog.ConnectionDialog(self.app_window)
         dlg.connect("response", self.add_callback)
         dlg.present()
 
     def add_callback(self, dialog, response_id):
         if response_id == Gtk.ResponseType.OK:
             conn = dialog.get_data()
-            self.app_window.connections[conn.uuid] = conn
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            _globals.connections[conn.uuid] = conn
+            _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
             self.populate_tree()
         dialog.destroy()
 
@@ -396,30 +396,30 @@ class ConnectionsView():
         if node and node.connection_data:
             self.open_edit_modal(None, None, node.connection_data)
 
-    def open_edit_modal(self, action, param, conn_to_edit: connection.Connection):
-        dlg = connection_dialog.ConnectionDialog(self.app_window, conn_to_edit)
+    def open_edit_modal(self, action, param, conn_to_edit: _connection.Connection):
+        dlg = _connection_dialog.ConnectionDialog(self.app_window, conn_to_edit)
         dlg.connect("response", self.edit_callback)
         dlg.present()
 
     def edit_callback(self, dialog, response_id, *args):
         if response_id == Gtk.ResponseType.OK:
             new_conn = dialog.get_data()
-            self.app_window.connections[new_conn.uuid] = new_conn
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            _globals.connections[new_conn.uuid] = new_conn
+            _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
             self.populate_tree()
         dialog.destroy()
         self.conn_to_edit = None
 
-    def clone_connection(self, action, param, conn_to_clone: connection.Connection):
+    def clone_connection(self, action, param, conn_to_clone: _connection.Connection):
         clone = conn_to_clone.get_cloned_connection()
         clone.name = f"Copy of {conn_to_clone.name}"
-        self.app_window.connections[clone.uuid] = clone
-        utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+        _globals.connections[clone.uuid] = clone
+        _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
         self.populate_tree()
 
-        self.open_edit_modal(None, None, self.app_window.connections[clone.uuid])
+        self.open_edit_modal(None, None, _globals.connections[clone.uuid])
 
-    def open_remove_modal(self, action, param, conn_to_remove: connection.Connection):
+    def open_remove_modal(self, action, param, conn_to_remove: _connection.Connection):
         dialog = Adw.MessageDialog(
             transient_for=self.app_window,
             modal=True,
@@ -434,24 +434,25 @@ class ConnectionsView():
 
     def remove_callback(self, dialog, response_id, conn):
         if response_id == "remove":
-            if conn.uuid in self.app_window.connections:
-                del self.app_window.connections[conn.uuid]
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            if conn.uuid in _globals.connections:
+                del _globals.connections[conn.uuid]
+            _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
             self.populate_tree()
         dialog.destroy()
 
     def open_appconfig_modal(self, button):
-        dlg = app_config_dialog.AppConfigDialog(self.app_window, self.app_window.app_config, self.app_window.about_info)
+        dlg = _app_config_dialog.AppConfigDialog(self.app_window, _globals.app_config, _globals.about_info)
         dlg.connect("response", self.appconfig_dialog_callback)
         dlg.present()
 
     def appconfig_dialog_callback(self, dialog, response_id):
         if response_id == Gtk.ResponseType.OK or response_id == Gtk.ResponseType.APPLY:
-            self.app_window.app_config = dialog.get_data()
-            utils.save_app_config(self.app_window.config_dir, self.app_window.readonly, self.app_window.app_config, self.app_window.connections, self.app_window.clusters)
+            _globals.app_config = dialog.get_data()
+            _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
             self.app_window.apply_config_settings()
-            for terminal in self.app_window._find_all_terminals_in_widget(self.app_window.notebook):
-                terminal.apply_theme()
+            for notebook in _gui_globals.all_notebooks:
+                for terminal in self.app_window._find_all_terminals_in_widget(notebook):
+                    terminal.apply_theme()
 
         if response_id == Gtk.ResponseType.OK or response_id == Gtk.ResponseType.CANCEL:
             dialog.destroy()
@@ -496,7 +497,7 @@ class ConnectionsView():
                 if node.children_store:
                     tree_row.set_expanded(not tree_row.get_expanded())
                 if node and node.connection_data:
-                    self.app_window.open_connection_tab(node.connection_data)
+                    _gui_globals.layout_manager.open_connection_tab(node.connection_data)
                     opened_connection = True
         if opened_connection:
             self.filter_entry.set_text("")

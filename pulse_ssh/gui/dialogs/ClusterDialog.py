@@ -2,22 +2,25 @@
 
 import gi
 gi.require_version('Adw', '1')
+gi.require_version('Gdk', '4.0')
 gi.require_version('Gtk', '4.0')
+gi.require_version('Vte', '3.91')
 
 from gi.repository import Adw  # type: ignore
-from gi.repository import GLib  # type: ignore
-from gi.repository import GObject  # type: ignore
 from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
+from gi.repository import GLib  # type: ignore
+from gi.repository import GObject  # type: ignore
 from gi.repository import Gtk  # type: ignore
 from typing import Dict
 from typing import Optional
-import pulse_ssh.Utils as utils
-import pulse_ssh.data.Cluster as cluster
-import pulse_ssh.data.Connection as connection
+import pulse_ssh.data.Cluster as _cluster
+import pulse_ssh.data.Connection as _connection
+import pulse_ssh.gui.Globals as _gui_globals
+import pulse_ssh.Utils as _utils
 
 class ConnectionCheckListItem(GObject.Object):
-    def __init__(self, connection: connection.Connection, check_button: Gtk.CheckButton):
+    def __init__(self, connection: _connection.Connection, check_button: Gtk.CheckButton):
         super().__init__()
         self.connection = connection
         self.check_button = check_button
@@ -27,10 +30,8 @@ class ClusterDialog(Adw.Window):
         'response': (GObject.SignalFlags.RUN_FIRST, None, (int,))
     }
 
-    def __init__(self, parent, connections: Dict[str, connection.Connection], cluster: Optional[cluster.Cluster] = None):
+    def __init__(self, parent, connections: Dict[str, _connection.Connection], cluster: Optional[_cluster.Cluster] = None):
         super().__init__(title="Cluster Configuration", transient_for=parent, modal=True)
-        screen_height = Gdk.Display.get_default().get_primary_monitor().get_geometry().height
-        self.set_default_size(700, screen_height / 1.3)
 
         self.cluster = cluster
         self.connections = connections
@@ -75,10 +76,26 @@ class ClusterDialog(Adw.Window):
         self.filter.changed(Gtk.FilterChange.DIFFERENT)
 
     def _build_ui(self):
-        page = Adw.PreferencesPage()
+        split_view = Adw.NavigationSplitView()
+        split_view.set_min_sidebar_width(200)
+        split_view.set_max_sidebar_width(300)
+        split_view.set_collapsed(False)
 
-        general_group = Adw.PreferencesGroup(title="General")
-        page.add(general_group)
+        sidebar = Gtk.StackSidebar()
+        self.stack = Gtk.Stack()
+        self.stack.set_size_request(600, 400)
+        self.stack.set_hhomogeneous(True)
+        self.stack.set_vhomogeneous(True)
+        sidebar.set_stack(self.stack)
+
+        split_view.set_sidebar(Adw.NavigationPage.new(sidebar, "Categories"))
+        split_view.set_content(Adw.NavigationPage.new(self.stack, "Settings"))
+
+        general_page = Adw.PreferencesPage()
+        self.stack.add_titled(general_page, "general", "General")
+
+        general_group = Adw.PreferencesGroup()
+        general_page.add(general_group)
 
         self.name_entry = Adw.EntryRow(title="Name", text=self.cluster.name if self.cluster else "")
         general_group.add(self.name_entry)
@@ -90,12 +107,15 @@ class ClusterDialog(Adw.Window):
             self.open_mode_dropdown.set_selected(0)
         general_group.add(self.open_mode_dropdown)
 
-        connections_group = Adw.PreferencesGroup(title="Connections")
-        page.add(connections_group)
+        connections_page = Adw.PreferencesPage()
+        self.stack.add_titled(connections_page, "connections", "Connections")
+
+        connections_group = Adw.PreferencesGroup()
+        connections_page.add(connections_group)
 
         self.connections_store = Gio.ListStore(item_type=ConnectionCheckListItem)
         checked_uuids = self.cluster.connection_uuids if self.cluster else []
-        for conn in sorted(self.connections.values(), key=utils.connectionsSortFunction):
+        for conn in sorted(self.connections.values(), key=_utils.connectionsSortFunction):
             check_button = Gtk.CheckButton(valign=Gtk.Align.CENTER)
             check_button.set_active(conn.uuid in checked_uuids)
             self.connections_store.append(ConnectionCheckListItem(conn, check_button))
@@ -126,13 +146,13 @@ class ClusterDialog(Adw.Window):
         filter_row.append(select_all_check)
 
         self.filter_entry.set_hexpand(True)
-        select_all_check.set_margin_end(18)
+        select_all_check.set_margin_end(14)
         select_all_check.set_tooltip_text("Select/Deselect All Connections")
 
         connections_group.add(filter_row)
         connections_group.add(scrolled_window)
 
-        return page
+        return split_view
 
     def setup_list_item(self, factory, list_item):
         row = Adw.ActionRow()
@@ -182,7 +202,7 @@ class ClusterDialog(Adw.Window):
 
         node = tree_row.get_item()
         if node and node.connection_data:
-            self.app_window.open_connection_tab(node.connection_data)
+            _gui_globals.layout_manager.open_connection_tab(node.connection_data)
             self.filter_entry.set_text("")
 
     def filter_list_function(self, item):
@@ -197,7 +217,7 @@ class ClusterDialog(Adw.Window):
 
         return search_text in full_name
 
-    def get_data(self) -> cluster.Cluster:
+    def get_data(self) -> _cluster.Cluster:
         selected_uuids = []
         for i in range(self.connections_store.get_n_items()):
             item = self.connections_store.get_item(i)
@@ -207,7 +227,7 @@ class ClusterDialog(Adw.Window):
         open_mode_str = self.open_mode_dropdown.get_selected_item().get_string()
         open_mode = "split" if open_mode_str == "In Split" else "tabs"
 
-        new_cluster = cluster.Cluster(
+        new_cluster = _cluster.Cluster(
             name=self.name_entry.get_text().strip(),
             connection_uuids=selected_uuids,
             open_mode=open_mode

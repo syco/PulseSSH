@@ -20,11 +20,10 @@ class Connection:
     password: Optional[str] = None
     identity_file: Optional[str] = None
     key_passphrase: Optional[str] = None
-    pre_local_cmds: List[str] = field(default_factory=list)
-    post_local_cmds: List[str] = field(default_factory=list)
-    post_remote_cmds: List[str] = field(default_factory=list)
-    remote_scripts: List[str] = field(default_factory=list)
-    post_manual_local_cmds: Dict[str, str] = field(default_factory=dict)
+    prepend_cmds: List[str] = field(default_factory=list)
+    local_cmds: Dict[str, str] = field(default_factory=dict)
+    remote_cmds: Dict[str, str] = field(default_factory=dict)
+    orchestrator_script: Optional[str] = None
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
     ssh_forward_agent: bool = False
     ssh_compression: bool = False
