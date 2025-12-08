@@ -378,9 +378,9 @@ class VteTerminal(Vte.Terminal):
     def paste_clipboard(self):
         if self.pulse_cluster_id and self.pulse_cluster_id in _gui_globals.active_clusters:
             for terminal in _gui_globals.active_clusters[self.pulse_cluster_id]:
-                super(VteTerminal, terminal).paste_clipboard()
-        else:
-            super().paste_clipboard()
+                if terminal != self:
+                    super(VteTerminal, terminal).paste_clipboard()
+        super().paste_clipboard()
 
     def on_middle_click_paste(self, gesture, n_press, x, y):
         self.paste_primary()
@@ -434,8 +434,9 @@ class VteTerminal(Vte.Terminal):
 
         if key_bytes:
             for t in _gui_globals.active_clusters[cluster_id]:
-                t.feed_child(key_bytes)
-            return True
+                if t != self:
+                    t.feed_child(key_bytes)
+            return False
 
         return False
 
