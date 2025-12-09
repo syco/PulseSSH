@@ -49,6 +49,10 @@ class ClustersView():
     def getAdwToolbarView(self) -> Adw.ToolbarView:
         self.root_store = Gio.ListStore(item_type=_cluster_list_item.ClusterListItem)
 
+        expression = Gtk.PropertyExpression.new(_cluster_list_item.ClusterListItem, None, "name")
+        sorter = Gtk.StringSorter.new(expression)
+        self.sorted_model = Gtk.SortListModel.new(self.root_store, sorter)
+
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self.setup_list_item)
         factory.connect("bind", self.bind_list_item)
@@ -59,7 +63,7 @@ class ClustersView():
         self.filter_entry.set_hexpand(True)
 
         self.filter = Gtk.CustomFilter.new(self.filter_list_function)
-        filter_model = Gtk.FilterListModel(model=self.root_store, filter=self.filter)
+        filter_model = Gtk.FilterListModel(model=self.sorted_model, filter=self.filter)
         self.selection_model = Gtk.SingleSelection(model=filter_model)
 
         self.list_view = Gtk.ListView(model=self.selection_model, factory=factory)
@@ -138,7 +142,7 @@ class ClustersView():
 
     def populate_tree(self):
         self.root_store.remove_all()
-        for cluster in sorted(_globals.clusters.values(), key=lambda c: c.name.lower()):
+        for cluster in _globals.clusters.values():
             self.root_store.append(_cluster_list_item.ClusterListItem(cluster))
 
     def filter_changed_callback(self, entry):
@@ -251,6 +255,14 @@ class ClustersView():
         dialog.destroy()
 
     def open_remove_modal(self, action, param, cluster_to_remove: _cluster.Cluster):
+        def remove_callback( dialog, response_id, cluster):
+            if response_id == "remove":
+                if cluster.uuid in _globals.clusters:
+                    del _globals.clusters[cluster.uuid]
+                _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
+                self.populate_tree()
+            dialog.destroy()
+
         dialog = Adw.MessageDialog(
             transient_for=self.app_window,
             modal=True,
@@ -260,16 +272,8 @@ class ClustersView():
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("remove", "Remove")
         dialog.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
-        dialog.connect("response", lambda d, res: self.remove_callback(d, res, cluster_to_remove))
+        dialog.connect("response", lambda d, res: remove_callback(d, res, cluster_to_remove))
         dialog.present()
-
-    def remove_callback(self, dialog, response_id, cluster):
-        if response_id == "remove":
-            if cluster.uuid in _globals.clusters:
-                del _globals.clusters[cluster.uuid]
-            _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
-            self.populate_tree()
-        dialog.destroy()
 
     def open_appconfig_modal(self, button):
         dlg = _app_config_dialog.AppConfigDialog(self.app_window, _globals.app_config, _globals.about_info)
@@ -305,6 +309,9 @@ class ClustersView():
             self.app_window.toast_overlay.add_toast(Adw.Toast.new("Cluster has no valid connections."))
             return
 
-        self.app_window.open_all_connections_split(None, None, conns_to_start, True, cluster.name) if cluster.open_mode == "split" else self.app_window.open_all_connections_in_tabs(None, None, conns_to_start, True, cluster.name)
+        if cluster.open_mode == "split":
+            self.app_window.open_all_connections_split(None, None, conns_to_start, True, cluster.uuid, cluster.name)
+        else:
+            self.app_window.open_all_connections_in_tabs(None, None, conns_to_start, True, cluster.uuid, cluster.name)
 
         self.filter_entry.set_text("")

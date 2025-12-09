@@ -23,7 +23,6 @@ class ConnectionDialog(Adw.Window):
 
     def __init__(self, parent, conn: Optional[_connection.Connection] = None):
         super().__init__(title="Connection Configuration", transient_for=parent, modal=True)
-        #self.set_default_size(800, 600)
 
         cancel_button = Gtk.Button.new_with_mnemonic("_Cancel")
         cancel_button.connect("clicked", lambda w: self.emit("response", Gtk.ResponseType.CANCEL))
@@ -421,7 +420,7 @@ class ConnectionDialog(Adw.Window):
         new_conn = _connection.Connection(
             name=self.name.get_text(),
             type=self.type_dropdown.get_selected_item().get_string(),
-            folder=self.folder.get_text().strip('/') or "",
+            folder=self.folder.get_text().strip().strip('/').replace('//', '/') or "",
             host=self.host.get_text(),
             port=int(self.port.get_value()),
             user=self.user.get_text(),

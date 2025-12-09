@@ -264,7 +264,7 @@ class ShortcutManager:
             newscale = focused_widget.get_font_scale() + 0.1
             cluster_id = focused_widget.pulse_cluster_id
             if cluster_id and cluster_id in _gui_globals.active_clusters:
-                for terminal in _gui_globals.active_clusters[cluster_id]:
+                for terminal in _gui_globals.active_clusters[cluster_id].terminals:
                     terminal.set_font_scale(newscale)
             else:
                 focused_widget.set_font_scale(newscale)
@@ -276,7 +276,7 @@ class ShortcutManager:
             newscale = focused_widget.get_font_scale() - 0.1
             cluster_id = focused_widget.pulse_cluster_id
             if cluster_id and cluster_id in _gui_globals.active_clusters:
-                for terminal in _gui_globals.active_clusters[cluster_id]:
+                for terminal in _gui_globals.active_clusters[cluster_id].terminals:
                     terminal.set_font_scale(newscale)
             else:
                 focused_widget.set_font_scale(newscale)
@@ -287,7 +287,7 @@ class ShortcutManager:
         if isinstance(focused_widget, _vte_terminal.VteTerminal):
             cluster_id = focused_widget.pulse_cluster_id
             if cluster_id and cluster_id in _gui_globals.active_clusters:
-                for terminal in _gui_globals.active_clusters[cluster_id]:
+                for terminal in _gui_globals.active_clusters[cluster_id].terminals:
                     terminal.set_font_scale(1.0)
             else:
                 focused_widget.set_font_scale(1.0)

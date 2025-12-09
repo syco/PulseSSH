@@ -48,6 +48,10 @@ class HistoryView():
     def getAdwToolbarView(self) -> Adw.ToolbarView:
         self.root_store = Gio.ListStore(item_type=_history_item.HistoryItem)
 
+        expression = Gtk.PropertyExpression.new(_history_item.HistoryItem, None, "name")
+        sorter = Gtk.StringSorter.new(expression)
+        self.sorted_model = Gtk.SortListModel.new(self.root_store, sorter)
+
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self.setup_list_item)
         factory.connect("bind", self.bind_list_item)
@@ -58,7 +62,7 @@ class HistoryView():
         self.filter_entry.set_hexpand(True)
 
         self.filter = Gtk.CustomFilter.new(self.filter_list_function)
-        filter_model = Gtk.FilterListModel(model=self.root_store, filter=self.filter)
+        filter_model = Gtk.FilterListModel(model=self.sorted_model, filter=self.filter)
         self.selection_model = Gtk.SingleSelection(model=filter_model)
 
         self.list_view = Gtk.ListView(model=self.selection_model, factory=factory)
@@ -234,40 +238,41 @@ class HistoryView():
 
         self.open_history_in_tab(None, None, item.uuid)
 
-    def _populate_text_view_with_history(self, text_view: Gtk.TextView, uuid: str):
-        text_buffer = text_view.get_buffer()
-        text_buffer.set_text("")
-
-        tag_table = text_buffer.get_tag_table()
-        if not tag_table.lookup("command_title"):
-            text_buffer.create_tag("command_title", weight=Pango.Weight.BOLD, scale=1.1)
-        if not tag_table.lookup("timestamp"):
-            text_buffer.create_tag("timestamp", style=Pango.Style.ITALIC)
-        if not tag_table.lookup("stdout_title"):
-            text_buffer.create_tag("stdout_title", weight=Pango.Weight.BOLD, scale=1.1)
-        if not tag_table.lookup("stderr_title"):
-            text_buffer.create_tag("stderr_title", weight=Pango.Weight.BOLD, scale=1.1)
-        if not tag_table.lookup("separator"):
-            text_buffer.create_tag("separator", underline=Pango.Underline.SINGLE)
-
-        history_items = _gui_globals.command_history.get(uuid, [])
-        sorted_history = sorted(history_items, key=lambda item: item.timestamp, reverse=True)
-
-        for i, node in enumerate(sorted_history):
-            time_str = node.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-            text_buffer.insert_with_tags_by_name(text_buffer.get_end_iter(), f"- Command: {node.command}\n", "command_title")
-            text_buffer.insert_with_tags_by_name(text_buffer.get_end_iter(), f"\t{time_str}\n", "timestamp")
-            text_buffer.insert(text_buffer.get_end_iter(), "\n")
-            text_buffer.insert_with_tags_by_name(text_buffer.get_end_iter(), "- STDOUT\n", "stdout_title")
-            text_buffer.insert(text_buffer.get_end_iter(), node.stdout or "No standard output.\n")
-            text_buffer.insert(text_buffer.get_end_iter(), "\n")
-            text_buffer.insert_with_tags_by_name(text_buffer.get_end_iter(), "- STDERR\n", "stderr_title")
-            text_buffer.insert(text_buffer.get_end_iter(), node.stderr or "No standard error.\n")
-
-            if i < len(sorted_history) - 1:
-                text_buffer.insert_with_tags_by_name(text_buffer.get_end_iter(), "\n" + ("-" * 80) + "\n\n", "separator")
-
     def open_history_in_tab(self, action, param, uuid: str):
+        def _populate_text_view_with_history(text_view: Gtk.TextView, uuid: str):
+            text_buffer = text_view.get_buffer()
+            text_buffer.set_text("")
+
+            tag_table = text_buffer.get_tag_table()
+            if not tag_table.lookup("title"):
+                text_buffer.create_tag("title", weight=Pango.Weight.BOLD, scale=1.1)
+            if not tag_table.lookup("timestamp"):
+                text_buffer.create_tag("timestamp", style=Pango.Style.ITALIC, scale=0.75)
+            if not tag_table.lookup("stdout_title"):
+                text_buffer.create_tag("stdout_title", weight=Pango.Weight.BOLD, scale=1.1)
+            if not tag_table.lookup("stderr_title"):
+                text_buffer.create_tag("stderr_title", weight=Pango.Weight.BOLD, scale=1.1)
+            if not tag_table.lookup("separator"):
+                text_buffer.create_tag("separator", underline=Pango.Underline.SINGLE)
+
+            history_items = _gui_globals.command_history.get(uuid, [])
+            sorted_history = sorted(history_items, key=lambda item: item.timestamp, reverse=True)
+
+            for i, node in enumerate(sorted_history):
+                time_str = node.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                text_buffer.insert_with_tags_by_name(text_buffer.get_end_iter(), f"- Command:\n", "title")
+                text_buffer.insert(text_buffer.get_end_iter(), f"\t{node.command}\n")
+                text_buffer.insert_with_tags_by_name(text_buffer.get_end_iter(), f"\t{time_str}\n", "timestamp")
+                text_buffer.insert(text_buffer.get_end_iter(), "\n")
+                text_buffer.insert_with_tags_by_name(text_buffer.get_end_iter(), "- STDOUT\n", "stdout_title")
+                text_buffer.insert(text_buffer.get_end_iter(), node.stdout or "No standard output.\n")
+                text_buffer.insert(text_buffer.get_end_iter(), "\n")
+                text_buffer.insert_with_tags_by_name(text_buffer.get_end_iter(), "- STDERR\n", "stderr_title")
+                text_buffer.insert(text_buffer.get_end_iter(), node.stderr or "No standard error.\n")
+
+                if i < len(sorted_history) - 1:
+                    text_buffer.insert_with_tags_by_name(text_buffer.get_end_iter(), "\n" + ("-" * 80) + "\n\n", "separator")
+
         self.filter_entry.set_text("")
 
         for notebook in _gui_globals.all_notebooks:
@@ -276,7 +281,7 @@ class HistoryView():
                 if hasattr(page, 'pulse_history_uuid') and page.pulse_history_uuid == uuid:
                     scrolled_window = page.get_child()
                     text_view = scrolled_window.get_child()
-                    self._populate_text_view_with_history(text_view, uuid)
+                    _populate_text_view_with_history(text_view, uuid)
                     notebook.set_selected_page(page)
                     return
 
@@ -286,7 +291,7 @@ class HistoryView():
         text_view = Gtk.TextView(editable=False, cursor_visible=False, wrap_mode=Gtk.WrapMode.WORD_CHAR)
         scrolled_window.set_child(text_view)
 
-        self._populate_text_view_with_history(text_view, uuid)
+        _populate_text_view_with_history(text_view, uuid)
 
         scrolled_window.set_child(text_view)
 
