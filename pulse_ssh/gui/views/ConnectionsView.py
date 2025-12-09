@@ -178,7 +178,7 @@ class ConnectionsView():
         return None, None
 
     def delete_tree_entry(self, conn: _connection.Connection):
-        def find_folder_item( parent_store: Gio.ListStore, child_store_to_find: Gio.ListStore):
+        def find_folder_item(parent_store: Gio.ListStore, child_store_to_find: Gio.ListStore):
             for i in range(parent_store.get_n_items()):
                 item = parent_store.get_item(i)
                 if item.is_folder:
@@ -214,6 +214,13 @@ class ConnectionsView():
         if self.filter_entry.has_focus():
             return Gdk.EVENT_PROPAGATE
 
+        if keyval == Gdk.KEY_Escape:
+            if self.filter_header_bar.get_visible():
+                self.filter_entry.set_text("")
+                self.filter_header_bar.set_visible(False)
+                self.list_view.grab_focus()
+                return Gdk.EVENT_STOP
+
         unichar = Gdk.keyval_to_unicode(keyval)
         is_modifier = state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK | Gdk.ModifierType.SUPER_MASK)
 
@@ -239,8 +246,16 @@ class ConnectionsView():
         return Gdk.EVENT_PROPAGATE
 
     def filter_changed_callback(self, entry):
+        def _expand_all_folders():
+            for i in range(self.filter_model.get_n_items()):
+                tree_row = self.filter_model.get_item(i)
+                if tree_row and tree_row.get_item().is_folder:
+                    tree_row.set_expanded(True)
+
         if self.filter:
             self.filter.changed(Gtk.FilterChange.DIFFERENT)
+            if entry.get_text():
+                _expand_all_folders()
             GLib.idle_add(self.select_first_item)
 
     def select_first_item(self):
