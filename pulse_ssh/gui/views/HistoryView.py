@@ -116,6 +116,13 @@ class HistoryView():
         if self.filter_entry.has_focus():
             return Gdk.EVENT_PROPAGATE
 
+        if keyval == Gdk.KEY_Escape:
+            if self.filter_header_bar.get_visible():
+                self.filter_entry.set_text("")
+                self.filter_header_bar.set_visible(False)
+                self.list_view.grab_focus()
+                return Gdk.EVENT_STOP
+
         unichar = Gdk.keyval_to_unicode(keyval)
         is_modifier = state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK | Gdk.ModifierType.SUPER_MASK)
 
