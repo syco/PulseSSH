@@ -325,7 +325,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     _gui_globals.layout_manager.open_connection_tab(conn)
 
         if len(conns_to_start) > 1:
-            if cluster_name and cluster_id:
+            if cluster_id and cluster_name:
                 do_open(cluster_id, cluster_name)
                 return
             elif clustered:
@@ -420,11 +420,13 @@ class MainWindow(Gtk.ApplicationWindow):
             boxy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             boxy.append(final_grid)
             page = _gui_globals.all_notebooks[0].append(boxy)
+            if len(conns_to_start) > 1 and cluster_id and cluster_name:
+                page.custom_title = cluster_name
             self.updatePageTitle(page)
             _gui_globals.all_notebooks[0].set_selected_page(page)
 
         if len(conns_to_start) > 1:
-            if cluster_name and cluster_id:
+            if cluster_id and cluster_name:
                 do_open(cluster_id, cluster_name)
                 return
             elif clustered:

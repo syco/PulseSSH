@@ -12,6 +12,7 @@ from gi.repository import Gio  # type: ignore
 from gi.repository import GLib  # type: ignore
 from gi.repository import GObject  # type: ignore
 from gi.repository import Gtk  # type: ignore
+from typing import List
 import pulse_ssh.data.Connection as _connection
 import pulse_ssh.Globals as _globals
 import pulse_ssh.gui.dialogs.AppConfigDialog as _app_config_dialog
@@ -44,7 +45,11 @@ class ConnectionsView():
         expander.add_controller(click_gesture)
 
     def create_submodel(self, item: _connection_list_item.ConnectionListItem):
-        return item.children_store
+        if item.is_folder:
+            expression = Gtk.PropertyExpression.new(_connection_list_item.ConnectionListItem, None, "sort_key")
+            sorter = Gtk.StringSorter.new(expression)
+            return Gtk.SortListModel.new(item.children_store, sorter)
+        return None
 
     def bind_list_item(self, factory, list_item):
         expander = list_item.get_child()
@@ -72,8 +77,12 @@ class ConnectionsView():
     def getAdwToolbarView(self) -> Adw.ToolbarView:
         self.root_store = Gio.ListStore.new(_connection_list_item.ConnectionListItem)
 
+        expression = Gtk.PropertyExpression.new(_connection_list_item.ConnectionListItem, None, "sort_key")
+        sorter = Gtk.StringSorter.new(expression)
+        self.sorted_root_model = Gtk.SortListModel.new(self.root_store, sorter)
+
         self.tree_store = Gtk.TreeListModel.new(
-            root=self.root_store,
+            root=self.sorted_root_model,
             passthrough=False,
             autoexpand=True,
             create_func=self.create_submodel
@@ -131,56 +140,72 @@ class ConnectionsView():
         toolbar_view.add_top_bar(self.filter_header_bar)
         toolbar_view.add_bottom_bar(bottom_bar)
 
-        for conn in sorted(_globals.connections.values(), key=_utils.connectionsSortFunction):
-            self.insert_entry(conn)
+        for conn in _globals.connections.values():
+            self.add_tree_entry(conn)
 
         self.filter.changed(Gtk.FilterChange.DIFFERENT)
+        GLib.idle_add(self.list_view.scroll_to, 0, Gtk.ListScrollFlags.NONE, None)
         return toolbar_view
 
-    def find_folder(self, parent_gio_list_store: Gio.ListStore, folder_name: str, create: bool = False) -> _connection_list_item.ConnectionListItem | None:
-        for i in range(parent_gio_list_store.get_n_items()):
-            item = parent_gio_list_store.get_item(i)
-            if item and item.name == folder_name and item.children_store:
-                return item
-
-        if not create:
-            return None
-
-        folder_item = _connection_list_item.ConnectionListItem(folder_name, None)
-        parent_gio_list_store.append(folder_item)
-        return folder_item
-
-    def insert_entry(self, conn: _connection.Connection):
-        current_gio_list_store = self.root_store
+    def add_tree_entry(self, conn: _connection.Connection):
+        folder_item = None
+        store = self.root_store
         if conn.folder:
             for part in conn.folder.split('/'):
-                folder_item = self.find_folder(current_gio_list_store, part, True)
-                current_gio_list_store = folder_item.children_store
+                folder_item, folder_index = self.find_tree_entry(store, part, True)
+                if not folder_item:
+                    folder_item = _connection_list_item.ConnectionListItem(part, store, None)
+                    store.append(folder_item)
+                store = folder_item.children_store
 
-        listItem = _connection_list_item.ConnectionListItem(conn.name, conn.uuid)
-        if current_gio_list_store is not None:
-            current_gio_list_store.append(listItem)
+        listItem = _connection_list_item.ConnectionListItem(conn.name, store, conn.uuid)
+        if store is not None:
+            store.append(listItem)
 
-    def find_entry(self, current_gio_list_store: Gio.ListStore, conn: _connection.Connection):
-        if conn.folder:
-            for part in conn.folder.split('/'):
-                folder_item = self.find_folder(current_gio_list_store, part, False)
-                if folder_item and folder_item.children_store:
-                    current_gio_list_store = folder_item.children_store
-                else:
-                    return None, None
+    def find_tree_entry(self, store: Gio.ListStore, search: str, is_folder: bool):
+        for i in range(store.get_n_items()):
+            item = store.get_item(i)
+            if is_folder:
+                if item.is_folder and item.name == search:
+                    return item, i
+            elif not item.is_folder and item.conn_uuid == search:
+                return item, i
 
-        for i in range(current_gio_list_store.get_n_items()):
-            item = current_gio_list_store.get_item(i)
-            if item and item.conn_uuid == conn.uuid:
-                return item, current_gio_list_store
-
+            if item.is_folder:
+                found_item, found_index = self.find_tree_entry(item.children_store, search, is_folder)
+                if found_item:
+                    return found_item, found_index
         return None, None
 
-    def delete_entry(self, conn: _connection.Connection):
-        item, store, index = self._find_item_by_uuid(self.root_store, conn.uuid)
-        if store and index is not None:
-            store.remove(index)
+    def delete_tree_entry(self, conn: _connection.Connection):
+        def find_folder_item( parent_store: Gio.ListStore, child_store_to_find: Gio.ListStore):
+            for i in range(parent_store.get_n_items()):
+                item = parent_store.get_item(i)
+                if item.is_folder:
+                    if item.children_store == child_store_to_find:
+                        return item
+                    found_item = find_folder_item(item.children_store, child_store_to_find)
+                    if found_item:
+                        return found_item
+            return None
+
+        def remove_empty_folders(store: Gio.ListStore):
+            if store == self.root_store:
+                return
+
+            if store.get_n_items() == 0:
+                parent_folder_item = find_folder_item(self.root_store, store)
+                if parent_folder_item and parent_folder_item.parent_store:
+                    parent_store = parent_folder_item.parent_store
+                    found, index = parent_folder_item.parent_store.find(parent_folder_item)
+                    if found:
+                        parent_folder_item.parent_store.remove(index)
+                    remove_empty_folders(parent_store)
+
+        item, index = self.find_tree_entry(self.root_store, conn.uuid, False)
+        if item and index is not None:
+            item.parent_store.remove(index)
+            remove_empty_folders(item.parent_store)
 
     def open_local_terminal(self, button):
         _gui_globals.layout_manager.open_connection_tab(_utils.local_connection)
@@ -263,7 +288,7 @@ class ConnectionsView():
                 if conn and conn.host and search_text in conn.host.lower():
                     return True
 
-            if current_item.children_store:
+            if current_item.is_folder:
                 for i in range(current_item.children_store.get_n_items()):
                     child_item = current_item.children_store.get_item(i)
                     if check_item_and_children(child_item):
@@ -291,7 +316,7 @@ class ConnectionsView():
             if item.conn_uuid:
                 if conn := _globals.connections.get(item.conn_uuid):
                     selected_conns.append(conn)
-            elif item.children_store:
+            elif item.is_folder:
                 for i in range(item.children_store.get_n_items()):
                     collect_connections_recursive(item.children_store.get_item(i))
 
@@ -319,7 +344,7 @@ class ConnectionsView():
             create_action("clone", self.clone_connection, selected_conns[0])
             menu_model.append("Clone Connection", "list.clone")
 
-            create_action("remove", self.open_remove_modal, selected_conns[0])
+            create_action("remove", self.open_remove_modal, selected_conns)
             menu_model.append("Remove Connection", "list.remove")
         else:
             open_all_submenu = Gio.Menu()
@@ -337,6 +362,9 @@ class ConnectionsView():
             open_all_submenu.append("In clustered split", "list.open_clustered_split")
 
             menu_model.append_submenu("Open All", open_all_submenu)
+
+            create_action("remove", self.open_remove_modal, selected_conns)
+            menu_model.append("Remove Connection", "list.remove")
 
         popover = Gtk.PopoverMenu.new_from_model(menu_model)
         popover.set_parent(gesture.get_widget())
@@ -379,16 +407,16 @@ class ConnectionsView():
             dragged_conn = _globals.connections.get(uuid_str)
 
             if dragged_conn:
-                self.delete_entry(dragged_conn)
+                self.delete_tree_entry(dragged_conn)
                 dragged_conn.folder = target_folder if target_folder else ""
-                self.insert_entry(dragged_conn)
+                self.add_tree_entry(dragged_conn)
             else:
                 move_folder = uuid_str.split('/')[-1]
                 for conn in _globals.connections.values():
                     if conn.folder.startswith(uuid_str):
-                        self.delete_entry(conn)
+                        self.delete_tree_entry(conn)
                         conn.folder = (f"{target_folder if target_folder else ""}/{move_folder}").strip().strip('/').replace('//', '/')
-                        self.insert_entry(conn)
+                        self.add_tree_entry(conn)
 
         _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
 
@@ -404,7 +432,7 @@ class ConnectionsView():
             conn = dialog.get_data()
             _globals.connections[conn.uuid] = conn
             _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
-            self.insert_entry(conn)
+            self.add_tree_entry(conn)
         dialog.destroy()
 
     def edit_selected_entry(self):
@@ -429,10 +457,10 @@ class ConnectionsView():
     def edit_callback(self, dialog, response_id, *args):
         if response_id == Gtk.ResponseType.OK:
             new_conn: _connection.Connection = dialog.get_data()
-            self.delete_entry(_globals.connections[new_conn.uuid])
+            self.delete_tree_entry(_globals.connections[new_conn.uuid])
             _globals.connections[new_conn.uuid] = new_conn
             _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
-            self.insert_entry(new_conn)
+            self.add_tree_entry(new_conn)
         dialog.destroy()
         self.conn_to_edit = None
 
@@ -441,30 +469,31 @@ class ConnectionsView():
         clone.name = f"Copy of {conn_to_clone.name}"
         _globals.connections[clone.uuid] = clone
         _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
-        self.insert_entry(clone)
+        self.add_tree_entry(clone)
 
         self.open_edit_modal(None, None, _globals.connections[clone.uuid])
 
-    def open_remove_modal(self, action, param, conn_to_remove: _connection.Connection):
+    def open_remove_modal(self, action, param, conn_to_remove: List[_connection.Connection]):
+        def remove_callback(dialog, response_id, conns):
+            if response_id == "remove":
+                for conn in conns:
+                    if conn.uuid in _globals.connections:
+                        self.delete_tree_entry(_globals.connections[conn.uuid])
+                        del _globals.connections[conn.uuid]
+                _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
+            dialog.destroy()
+
         dialog = Adw.MessageDialog(
             transient_for=self.app_window,
             modal=True,
-            heading=f"Remove '{conn_to_remove.name}'?",
+            heading=(f"Remove '{conn_to_remove[0].name}'?" if len(conn_to_remove) == 1 else f"Remove {len(conn_to_remove)} selected connections?"),
             body="Are you sure you want to remove this connection? This action cannot be undone."
         )
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("remove", "Remove")
         dialog.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
-        dialog.connect("response", self.remove_callback, conn_to_remove)
+        dialog.connect("response", remove_callback, conn_to_remove)
         dialog.present()
-
-    def remove_callback(self, dialog, response_id, conn):
-        if response_id == "remove":
-            if conn.uuid in _globals.connections:
-                self.delete_entry(_globals.connections[conn.uuid])
-                del _globals.connections[conn.uuid]
-            _utils.save_app_config(_globals.config_dir, _globals.readonly, _globals.app_config, _globals.connections, _globals.clusters)
-        dialog.destroy()
 
     def open_appconfig_modal(self, button):
         dlg = _app_config_dialog.AppConfigDialog(self.app_window, _globals.app_config, _globals.about_info)
@@ -493,7 +522,7 @@ class ConnectionsView():
             self.selection_model.unselect_all()
             return
 
-        item, _, _ = self._find_item_by_uuid(self.root_store, conn_uuid)
+        item, index = self.find_tree_entry(self.root_store, conn_uuid, False)
 
         if not item:
             self.selection_model.unselect_all()
@@ -514,30 +543,14 @@ class ConnectionsView():
 
         self.selection_model.unselect_all()
 
-    def _find_item_by_uuid(self, store: Gio.ListStore, uuid_to_find: str):
-        """Recursively finds an item by its UUID in the data stores."""
-        for i in range(store.get_n_items()):
-            item = store.get_item(i)
-            if item.conn_uuid == uuid_to_find:
-                return item, store, i
-            if item.children_store:
-                found_item, found_store, found_index = self._find_item_by_uuid(item.children_store, uuid_to_find)
-                if found_item:
-                    return found_item, found_store, found_index
-        return None, None, None
-
     def item_activated_callback(self, list_view, position):
-        selection = self.selection_model.get_selection()
-        opened_connection = False
-        for i in range(selection.get_size()):
-            pos = selection.get_nth(i)
-            tree_row = self.selection_model.get_model().get_item(pos)
-            if tree_row:
-                node = tree_row.get_item()
-                if node.children_store:
-                    tree_row.set_expanded(not tree_row.get_expanded())
-                if node and node.conn_uuid:
-                    _gui_globals.layout_manager.open_connection_tab(_globals.connections[node.conn_uuid])
-                    opened_connection = True
-        if opened_connection:
+        tree_row = self.selection_model.get_model().get_item(position)
+        if not tree_row:
+            return
+
+        node = tree_row.get_item()
+        if node.is_folder:
+            tree_row.set_expanded(not tree_row.get_expanded())
+        elif node.conn_uuid:
+            _gui_globals.layout_manager.open_connection_tab(_globals.connections[node.conn_uuid])
             self.filter_entry.set_text("")

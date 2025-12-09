@@ -48,6 +48,10 @@ class HistoryView():
     def getAdwToolbarView(self) -> Adw.ToolbarView:
         self.root_store = Gio.ListStore(item_type=_history_item.HistoryItem)
 
+        expression = Gtk.PropertyExpression.new(_history_item.HistoryItem, None, "name")
+        sorter = Gtk.StringSorter.new(expression)
+        self.sorted_model = Gtk.SortListModel.new(self.root_store, sorter)
+
         factory = Gtk.SignalListItemFactory()
         factory.connect("setup", self.setup_list_item)
         factory.connect("bind", self.bind_list_item)
@@ -58,7 +62,7 @@ class HistoryView():
         self.filter_entry.set_hexpand(True)
 
         self.filter = Gtk.CustomFilter.new(self.filter_list_function)
-        filter_model = Gtk.FilterListModel(model=self.root_store, filter=self.filter)
+        filter_model = Gtk.FilterListModel(model=self.sorted_model, filter=self.filter)
         self.selection_model = Gtk.SingleSelection(model=filter_model)
 
         self.list_view = Gtk.ListView(model=self.selection_model, factory=factory)

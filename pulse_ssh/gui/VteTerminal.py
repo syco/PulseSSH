@@ -206,7 +206,7 @@ class VteTerminal(Vte.Terminal):
 
     def _create_new_cluster(self, terminal):
         def on_name_received(cluster_name, cluster_id):
-            if cluster_name and cluster_id:
+            if cluster_id and cluster_name:
                 _gui_globals.cluster_manager.join_cluster(terminal, cluster_id, cluster_name)
 
         _gui_globals.ask_for_cluster_name(self.get_ancestor(Gtk.ApplicationWindow), on_name_received)
