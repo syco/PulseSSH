@@ -25,4 +25,4 @@ class ConnectionListItem(GObject.Object):
         self.conn_uuid = conn_uuid
         self.children_store = None if conn_uuid else Gio.ListStore.new(ConnectionListItem)
         self.icon_name = ("utilities-terminal-symbolic" if conn_uuid else "folder-symbolic")
-        self._sort_key = f"{'1' if self.conn_uuid else '0'}-{self.name.lower()}"
+        self._sort_key = f"{'0' if self.conn_uuid else '1'}-{self.name.lower()}"
