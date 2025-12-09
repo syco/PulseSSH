@@ -50,10 +50,13 @@ class LayoutManager:
         self.app_window.updatePageTitle(page)
 
     def create_terminal(self, conn: _connection.Connection, cluster_id: Optional[str] = None, cluster_name: Optional[str] = None) -> Gtk.ScrolledWindow:
-        if conn.uuid in _globals.connections:
-            conn = _globals.connections[conn.uuid]
+        conn_uuid = conn if isinstance(conn, str) else conn.uuid
+        if conn_uuid in _globals.connections:
+            conn_obj = _globals.connections[conn_uuid]
+        else:
+            conn_obj = conn
 
-        terminal = _vte_terminal.VteTerminal(self.app_window, conn, cluster_id, cluster_name)
+        terminal = _vte_terminal.VteTerminal(self.app_window, conn_obj, cluster_id, cluster_name)
 
         scrolled = Gtk.ScrolledWindow()
         if _globals.app_config.scrollbar_visible:

@@ -70,7 +70,7 @@ class CursesWindow:
 
         def collect_paths(subtree, subprefix, sublevel):
             for k, v in sorted(subtree.items()):
-                path = f"{subprefix}/{k}".strip('/')
+                path = f"{subprefix}/{k}".strip('/').replace('//', '/')
                 all_paths.append((path, k, v, sublevel))
                 if isinstance(v, dict) and path not in collapsed:
                     collect_paths(v, path, sublevel + 1)
