@@ -255,7 +255,7 @@ class ClustersView():
         dialog.destroy()
 
     def open_remove_modal(self, action, param, cluster_to_remove: _cluster.Cluster):
-        def remove_callback( dialog, response_id, cluster):
+        def remove_callback(dialog, response_id, cluster):
             if response_id == "remove":
                 if cluster.uuid in _globals.clusters:
                     del _globals.clusters[cluster.uuid]
