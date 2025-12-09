@@ -117,6 +117,8 @@ terminal-based (ncurses) interface.
     )
     args = parser.parse_args()
 
+    _globals.config_dir = args.config_dir
+
     if args.ncurses or not os.environ.get('DISPLAY'):
         run_curses_app(args)
     else:

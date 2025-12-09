@@ -26,7 +26,7 @@ class CursesWindow:
     def _build_tree_structure(self):
         tree = {}
 
-        for conn_uuid, conn in _globals.connections.items():
+        for conn in sorted(_globals.connections.values(), key=_utils.connectionsSortFunction):
             folder = conn.folder
             if not folder:
                 folder = 'Uncategorized'
@@ -36,17 +36,8 @@ class CursesWindow:
                 if part not in current:
                     current[part] = {}
                 current = current[part]
-            current[conn.name] = conn_uuid
-        return self._sort_tree(tree)
-
-    def _sort_tree(self, tree):
-        sorted_tree = {}
-        for key in sorted(tree.keys()):
-            if isinstance(tree[key], dict):
-                sorted_tree[key] = self._sort_tree(tree[key])
-            else:
-                sorted_tree[key] = tree[key]
-        return sorted_tree
+            current[conn.name] = conn.uuid
+        return tree
 
     def _search_tree(self, tree, query):
         if not query:
