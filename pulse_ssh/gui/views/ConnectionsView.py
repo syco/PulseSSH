@@ -351,7 +351,9 @@ class ConnectionsView():
 
         if len(selected_conns) == 1:
             create_action("open_tab", self.app_window.open_all_connections_in_tabs, selected_conns)
-            menu_model.append("Open in new tab", "list.open_tab")
+            menu_model.append("Open in New Tab", "list.open_tab")
+
+            menu_model.append_section(None, Gio.Menu())
 
             create_action("edit", self.open_edit_modal, selected_conns[0])
             menu_model.append("Edit Connection", "list.edit")
@@ -359,22 +361,24 @@ class ConnectionsView():
             create_action("clone", self.clone_connection, selected_conns[0])
             menu_model.append("Clone Connection", "list.clone")
 
+            menu_model.append_section(None, Gio.Menu())
+
             create_action("remove", self.open_remove_modal, selected_conns)
             menu_model.append("Remove Connection", "list.remove")
         else:
             open_all_submenu = Gio.Menu()
 
             create_action("open_tabs", self.app_window.open_all_connections_in_tabs, selected_conns)
-            open_all_submenu.append("In tabs", "list.open_tabs")
+            open_all_submenu.append("As Separate Tabs", "list.open_tabs")
 
             create_action("open_split", self.app_window.open_all_connections_split, selected_conns)
-            open_all_submenu.append("In split", "list.open_split")
+            open_all_submenu.append("As a Split View", "list.open_split")
 
             create_action("open_clustered_tabs", self.app_window.open_all_connections_in_tabs, selected_conns, True)
-            open_all_submenu.append("In clustered tabs", "list.open_clustered_tabs")
+            open_all_submenu.append("As Clustered Tabs", "list.open_clustered_tabs")
 
             create_action("open_clustered_split", self.app_window.open_all_connections_split, selected_conns, True)
-            open_all_submenu.append("In clustered split", "list.open_clustered_split")
+            open_all_submenu.append("As a Clustered Split", "list.open_clustered_split")
 
             menu_model.append_submenu("Open All", open_all_submenu)
 

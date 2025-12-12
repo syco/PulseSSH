@@ -211,6 +211,8 @@ class ClustersView():
         action_group.add_action(edit_action)
         menu_model.append("Edit Cluster", "cluster.edit")
 
+        menu_model.append_section(None, Gio.Menu())
+
         remove_action = Gio.SimpleAction.new("remove", None)
         remove_action.connect("activate", self.open_remove_modal, cluster_to_act_on)
         action_group.add_action(remove_action)
