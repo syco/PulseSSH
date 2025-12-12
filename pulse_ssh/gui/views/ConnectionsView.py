@@ -466,7 +466,7 @@ class ConnectionsView():
 
         node = tree_row.get_item()
         if node and node.conn_uuid:
-            self.open_edit_modal(None, None, node.conn_uuid)
+            self.open_edit_modal(None, None, _globals.connections[node.conn_uuid])
 
     def open_edit_modal(self, action, param, conn_to_edit: _connection.Connection):
         dlg = _connection_dialog.ConnectionDialog(self.app_window, conn_to_edit)

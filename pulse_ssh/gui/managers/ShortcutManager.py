@@ -105,7 +105,7 @@ class ShortcutManager:
 
         edit_shortcut = Gtk.Shortcut.new(
             Gtk.ShortcutTrigger.parse_string("<Alt>e"),
-            Gtk.CallbackAction.new(self._on_edit_shortcut)
+            Gtk.CallbackAction.new(self._on_edit_shortcut, window)
         )
         shortcut_controller.add_shortcut(edit_shortcut)
 
@@ -195,12 +195,19 @@ class ShortcutManager:
             self.app_window.history_view.filter_entry.select_region(0, -1)
         return True
 
-    def _on_edit_shortcut(self, *args):
-        active_view = self.app_window.panel_stack.get_visible_child_name()
-        if active_view == "connections":
-            self.app_window.connections_view.edit_selected_entry()
-        elif active_view == "clusters":
-            self.app_window.clusters_view.edit_selected_entry()
+    def _on_edit_shortcut(self, window, *args):
+        focused_widget = window.get_focus()
+
+        if isinstance(focused_widget, _vte_terminal.VteTerminal) and hasattr(focused_widget, 'pulse_conn'):
+            connection = focused_widget.pulse_conn
+            if connection:
+                self.app_window.connections_view.open_edit_modal(None, None, connection)
+        else:
+            active_view = self.app_window.panel_stack.get_visible_child_name()
+            if active_view == "connections":
+                self.app_window.connections_view.edit_selected_entry()
+            elif active_view == "clusters":
+                self.app_window.clusters_view.edit_selected_entry()
         return True
 
     def _on_duplicate_shortcut(self, widget, *args):
