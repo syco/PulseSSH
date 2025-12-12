@@ -267,29 +267,22 @@ class VteTerminal(Vte.Terminal):
 
         menu_model.append_section(None, Gio.Menu())
 
+        remote_cmds_submenu = self.create_remote_cmds_submenu(action_group)
+        menu_model.append_submenu("Remote Commands", remote_cmds_submenu)
+
+        local_cmds_submenu = self.create_local_cmds_submenu(action_group)
+        menu_model.append_submenu("Local Commands", local_cmds_submenu)
+
+        menu_model.append_section(None, Gio.Menu())
+
         split_h_submenu = self._create_split_submenu(action_group, Gtk.Orientation.HORIZONTAL, page)
         menu_model.append_submenu("Split Horizontal", split_h_submenu)
 
         split_v_submenu = self._create_split_submenu(action_group, Gtk.Orientation.VERTICAL, page)
         menu_model.append_submenu("Split Vertical", split_v_submenu)
 
-        parent = self.get_parent().get_parent()
-        if isinstance(parent, Gtk.Paned):
-            unsplit_action = Gio.SimpleAction.new("unsplit", None)
-            unsplit_action.connect("activate", _gui_globals.layout_manager.unsplit_terminal, self, page, notebook)
-            action_group.add_action(unsplit_action)
-            menu_model.append("Move to tab", "term.unsplit")
-
         cluster_submenu = self._create_cluster_submenu(self, action_group)
         menu_model.append_submenu("Cluster", cluster_submenu)
-
-        menu_model.append_section(None, Gio.Menu())
-
-        local_cmds_submenu = self.create_local_cmds_submenu(action_group)
-        menu_model.append_submenu("Local Commands", local_cmds_submenu)
-
-        remote_cmds_submenu = self.create_remote_cmds_submenu(action_group)
-        menu_model.append_submenu("Remote Commands", remote_cmds_submenu)
 
         menu_model.append_section(None, Gio.Menu())
 
@@ -298,7 +291,12 @@ class VteTerminal(Vte.Terminal):
         action_group.add_action(rename_action)
         menu_model.append("Rename Tab", "term.rename_tab")
 
-        menu_model.append_section(None, Gio.Menu())
+        parent = self.get_parent().get_parent()
+        if isinstance(parent, Gtk.Paned):
+            unsplit_action = Gio.SimpleAction.new("unsplit", None)
+            unsplit_action.connect("activate", _gui_globals.layout_manager.unsplit_terminal, self, page, notebook)
+            action_group.add_action(unsplit_action)
+            menu_model.append("Move to New Tab", "term.unsplit")
 
         close_action = Gio.SimpleAction.new("close", None)
         close_action.connect("activate", _gui_globals.layout_manager.close_terminal, self, page, notebook)
