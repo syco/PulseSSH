@@ -130,13 +130,14 @@ class ShortcutManager:
         return controller
 
     def _on_new_tab_shortcut(self, widget, *args):
-        focused_widget = widget.get_focus()
-        if not focused_widget:
-            return True
+        notebook = None
 
-        notebook = focused_widget.get_ancestor(Adw.TabView)
+        focused_widget = widget.get_focus()
+        if focused_widget:
+            notebook = focused_widget.get_ancestor(Adw.TabView)
+
         if not notebook:
-            return True
+            notebook = _gui_globals.all_notebooks[0]
 
         terminal = _gui_globals.layout_manager.create_terminal(_utils.local_connection)
 
