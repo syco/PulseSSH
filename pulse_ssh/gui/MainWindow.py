@@ -109,6 +109,7 @@ class MainWindow(Gtk.ApplicationWindow):
         sidebar_page = Adw.NavigationPage.new(self.side_panel, "Sidebar")
 
         notebook = Adw.TabView()
+        notebook.set_hexpand(True)
         notebook.set_vexpand(True)
         notebook.connect("close-page", self.on_notebook_close_page)
         notebook.connect("notify::selected-page", self._on_tab_switched)
@@ -131,6 +132,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.split_view.set_max_sidebar_width(400)
         self.split_view.set_sidebar_width_fraction(0.2)
         self.split_view.set_sidebar_position(Gtk.PositionType.RIGHT if _globals.app_config.sidebar_on_right else Gtk.PositionType.LEFT)
+        self.split_view.set_hexpand(True)
         self.split_view.set_vexpand(True)
 
         toolbar_view = Adw.ToolbarView(content=self.split_view)

@@ -28,6 +28,7 @@ class VteTerminal(Vte.Terminal):
         super().__init__()
         self.app_window = app_window
 
+        self.set_hexpand(True)
         self.set_vexpand(True)
         self.set_scrollback_lines(_globals.app_config.scrollback_lines)
         self.set_scroll_on_output(_globals.app_config.scroll_on_output)
