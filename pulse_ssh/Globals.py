@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from typing import Dict
+from typing import Optional
 import pulse_ssh.data.AppConfig as _app_config
 import pulse_ssh.data.Cluster as _cluster
 import pulse_ssh.data.Connection as _connection
@@ -18,4 +19,5 @@ app_config: _app_config.AppConfig = _app_config.AppConfig()
 clusters: Dict[str, _cluster.Cluster] = {}
 config_dir: str = ""
 connections: Dict[str, _connection.Connection] = {}
+encryption_key: Optional[bytes] = None
 readonly: bool = False

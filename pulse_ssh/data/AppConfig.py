@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Dict
+from typing import Optional
 
 @dataclass
 class AppConfig:
@@ -21,6 +22,8 @@ class AppConfig:
     sidebar_on_right: bool = False
     scrollbar_visible: bool = True
     audible_bell: bool = False
+    encryption_enabled: bool = False
+    encryption_canary: Optional[str] = None
     ssh_forward_agent: bool = False
     ssh_compression: bool = False
     ssh_x11_forwarding: bool = False

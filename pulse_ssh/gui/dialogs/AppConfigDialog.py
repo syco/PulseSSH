@@ -14,6 +14,8 @@ from gi.repository import Gtk  # type: ignore
 from gi.repository import Pango  # type: ignore
 import os
 import pulse_ssh.data.AppConfig as _app_config
+import pulse_ssh.Globals as _globals
+import pulse_ssh.gui.dialogs.PasswordDialog as _password_dialog
 import pulse_ssh.gui.views.list_items.StringObject as _string_object
 import pulse_ssh.Utils as _utils
 
@@ -118,6 +120,7 @@ class AppConfigDialog(Adw.Window):
         self._build_appearance_page(config)
         self._build_behavior_page(config)
         self._build_scrolling_page(config)
+        self._build_encryption_page(config)
         self._build_ssh_page(config)
         self._build_binaries_page(config)
         self._build_shortcuts_page()
@@ -241,6 +244,26 @@ class AppConfigDialog(Adw.Window):
 
         self.scroll_on_insert = Adw.SwitchRow(title="Scroll on Insert (deprecated)", subtitle="This option may have no effect", active=config.scroll_on_insert)
         scrolling_group.add(self.scroll_on_insert)
+
+    def _build_encryption_page(self, config: _app_config.AppConfig):
+        page = Adw.PreferencesPage()
+        self.stack.add_titled(page, "encryption", "Encryption")
+
+        encryption_group = Adw.PreferencesGroup()
+        page.add(encryption_group)
+
+        self.encryption_enabled = Adw.SwitchRow(title="Enable Encryption", subtitle="Encrypt sensitive configuration data", active=config.encryption_enabled)
+        self.encryption_enabled.connect("notify::active", self._on_encryption_toggled)
+        encryption_group.add(self.encryption_enabled)
+
+        self.change_password_row = Adw.ActionRow(title="Change Password")
+        change_button = Gtk.Button(label="Change")
+        change_button.connect("clicked", self._on_change_password_clicked)
+        self.change_password_row.add_suffix(change_button)
+        self.change_password_row.set_activatable_widget(change_button)
+        encryption_group.add(self.change_password_row)
+
+        self.change_password_row.set_visible(config.encryption_enabled)
 
     def _build_ssh_page(self, config: _app_config.AppConfig):
         page_grid = Gtk.Grid(margin_start=10, margin_end=10, margin_top=10, margin_bottom=10, row_spacing=6, column_spacing=6)
@@ -465,6 +488,78 @@ class AppConfigDialog(Adw.Window):
             list_box.insert(dragged_row, pos)
         return True
 
+    def _on_encryption_toggled(self, switch, _):
+        is_active = switch.get_active()
+        self.change_password_row.set_visible(is_active)
+
+        if is_active:
+            dialog = _password_dialog.PasswordDialog(
+                self,
+                "Set Encryption Password",
+                "Please enter a password to encrypt your configuration.",
+                confirm=True
+            )
+            def on_response(d, response_id, password):
+                if response_id == Gtk.ResponseType.OK and password:
+                    _utils.set_encryption_password(password)
+                else:
+                    switch.set_active(False)
+            dialog.connect("response", on_response)
+            dialog.present()
+        else:
+            # Disabling encryption
+            _globals.app_config.encryption_canary = None
+            _globals.encryption_key = None
+
+    def _on_change_password_clicked(self, button):
+        # Step 1: Verify current password
+        verify_dialog = _password_dialog.PasswordDialog(
+            self,
+            "Verify Current Password",
+            "Please enter your current password to continue."
+        )
+
+        def on_verify_response(d, response_id, password):
+            if response_id == Gtk.ResponseType.OK and password:
+                if _utils.verify_encryption_password(password):
+                    # Correct password, proceed to set new one
+                    self._prompt_for_new_password()
+                else:
+                    # Incorrect password
+                    error_dialog = Adw.MessageDialog(
+                        transient_for=self,
+                        modal=True,
+                        heading="Incorrect Password",
+                        body="The password you entered was incorrect."
+                    )
+                    error_dialog.add_response("ok", "OK")
+                    error_dialog.connect("response", lambda *_: error_dialog.close())
+                    error_dialog.present()
+
+        verify_dialog.connect("response", on_verify_response)
+        verify_dialog.present()
+
+    def _prompt_for_new_password(self):
+        # Step 2: Set new password
+        dialog = _password_dialog.PasswordDialog(
+            self,
+            "Set New Password",
+            "Please enter your new password.",
+            confirm=True
+        )
+
+        def on_response(d, response_id, new_password):
+            if response_id == Gtk.ResponseType.OK and new_password:
+                _utils.set_encryption_password(new_password)
+                toast = Adw.Toast.new("Password changed successfully!")
+                self.get_ancestor(Gtk.ApplicationWindow).toast_overlay.add_toast(toast)
+            elif response_id == Gtk.ResponseType.OK:
+                toast = Adw.Toast.new("Password cannot be empty.")
+                self.get_ancestor(Gtk.ApplicationWindow).toast_overlay.add_toast(toast)
+        dialog.connect("response", on_response)
+        dialog.present()
+
+
     def get_data(self) -> _app_config.AppConfig:
         font_desc = self.font_chooser.get_font_desc()
         font_size = 12 if font_desc.get_size_is_absolute() else font_desc.get_size() / Pango.SCALE
@@ -513,6 +608,8 @@ class AppConfigDialog(Adw.Window):
             scrollbar_visible=self.scrollbar_visible.get_active(),
             sidebar_on_right=self.sidebar_on_right.get_active(),
             audible_bell=self.audible_bell.get_active(),
+            encryption_enabled=self.encryption_enabled.get_active(),
+            encryption_canary=_globals.app_config.encryption_canary,
             ssh_forward_agent=self.ssh_forward_agent.get_active(),
             ssh_compression=self.ssh_compression.get_active(),
             ssh_x11_forwarding=self.ssh_x11_forwarding.get_active(),

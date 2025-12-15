@@ -1,15 +1,21 @@
 #!/usr/bin/env python
 
+from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from dataclasses import asdict
 from dataclasses import fields
 from typing import Dict
 from typing import Optional
+import base64
 import json
 import os
 import pulse_ssh.data.AppConfig as _app_config
 import pulse_ssh.data.CacheConfig as _cache_config
 import pulse_ssh.data.Cluster as _cluster
 import pulse_ssh.data.Connection as _connection
+import pulse_ssh.Globals as _globals
 import shlex
 import socket
 
@@ -26,6 +32,72 @@ local_connection = _connection.Connection(
 )
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+ENCRYPTION_CANARY_PLAINTEXT = "aabbcc"
+
+def _derive_key(password: str, salt: bytes) -> bytes:
+    """Derives a cryptographic key from a password and salt."""
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=480000,
+        backend=default_backend()
+    )
+    return base64.urlsafe_b64encode(kdf.derive(password.encode()))
+
+def set_encryption_password(password: str):
+    """Sets the global encryption key and creates a new canary."""
+    salt = os.urandom(16)
+    key = _derive_key(password, salt)
+    _globals.encryption_key = key
+
+    fernet = Fernet(key)
+    encrypted_canary = fernet.encrypt(ENCRYPTION_CANARY_PLAINTEXT.encode())
+
+    _globals.app_config.encryption_canary = f"{salt.hex()}.{encrypted_canary.hex()}"
+
+def verify_encryption_password(password: str) -> bool:
+    """Verifies the password against the encrypted canary."""
+    if not _globals.app_config.encryption_canary:
+        return False
+
+    try:
+        salt_hex, encrypted_canary_hex = _globals.app_config.encryption_canary.split('.')
+        salt = bytes.fromhex(salt_hex)
+        encrypted_canary = bytes.fromhex(encrypted_canary_hex)
+
+        key = _derive_key(password, salt)
+        fernet = Fernet(key)
+        decrypted_canary = fernet.decrypt(encrypted_canary)
+        if decrypted_canary.decode() == ENCRYPTION_CANARY_PLAINTEXT:
+            _globals.encryption_key = key
+            return True
+    except (InvalidToken, ValueError, TypeError):
+        return False
+    return False
+
+def encrypt_string(plaintext: str) -> Optional[str]:
+    """Encrypts a string using the global encryption key."""
+    if not _globals.encryption_key or not plaintext:
+        return None
+    try:
+        fernet = Fernet(_globals.encryption_key)
+        encrypted_text = fernet.encrypt(plaintext.encode())
+        return base64.urlsafe_b64encode(encrypted_text).decode()
+    except Exception:
+        return None
+
+def decrypt_string(encrypted_text: str) -> Optional[str]:
+    """Decrypts a string using the global encryption key."""
+    if not _globals.encryption_key or not encrypted_text:
+        return None
+    try:
+        fernet = Fernet(_globals.encryption_key)
+        decoded_encrypted_text = base64.urlsafe_b64decode(encrypted_text)
+        return fernet.decrypt(decoded_encrypted_text).decode()
+    except (InvalidToken, ValueError, TypeError):
+        return None
 
 def load_themes() -> Dict:
     themes = {}
