@@ -162,14 +162,14 @@ class VteTerminal(Vte.Terminal):
                     return True
                 if keyval == Gdk.KEY_Escape:
                     self.remove_controller(evk)
-                    _gui_globals.layout_manager.close_terminal(None, None, self, page, notebook)
+                    _gui_globals.layout_manager.close_terminal(None, None, self)
                     return True
                 return False
             evk.connect("key-pressed", on_key_pressed)
             self.add_controller(evk)
 
         if behavior == "close":
-            _gui_globals.layout_manager.close_terminal(None, None, self, page, notebook)
+            _gui_globals.layout_manager.close_terminal(None, None, self)
         elif behavior == "restart":
             connect_duration = GLib.get_monotonic_time() - self.connect_time
             if connect_duration < 5 * 1_000_000:
@@ -184,7 +184,7 @@ class VteTerminal(Vte.Terminal):
         submenu = Gio.Menu()
 
         action_name = f"split_new_{'h' if orientation == Gtk.Orientation.HORIZONTAL else 'v'}"
-        split_new_action = Gio.SimpleAction.new(action_name, None) #
+        split_new_action = Gio.SimpleAction.new(action_name, None)
         split_new_action.connect("activate", _gui_globals.layout_manager.split_terminal_or_tab, self, source_page, orientation, None, None)
         action_group.add_action(split_new_action)
         submenu.append("New Terminal (Same Host)", f"term.{action_name}")
@@ -291,15 +291,26 @@ class VteTerminal(Vte.Terminal):
         action_group.add_action(rename_action)
         menu_model.append("Rename Tab", "term.rename_tab")
 
+        if notebook == _gui_globals.all_notebooks[0]:
+            detatch_action = Gio.SimpleAction.new("detatch", None)
+            detatch_action.connect("activate", _gui_globals.layout_manager.detatch_terminal, self)
+            action_group.add_action(detatch_action)
+            menu_model.append("Detatch to New Window", "term.detatch")
+        else:
+            attach_action = Gio.SimpleAction.new("attach", None)
+            attach_action.connect("activate", _gui_globals.layout_manager.attach_terminal, self)
+            action_group.add_action(attach_action)
+            menu_model.append("Attach to Main Window", "term.attach")
+
         parent = self.get_parent().get_parent()
         if isinstance(parent, Gtk.Paned):
             unsplit_action = Gio.SimpleAction.new("unsplit", None)
-            unsplit_action.connect("activate", _gui_globals.layout_manager.unsplit_terminal, self, page, notebook)
+            unsplit_action.connect("activate", _gui_globals.layout_manager.unsplit_terminal, self)
             action_group.add_action(unsplit_action)
             menu_model.append("Move to New Tab", "term.unsplit")
 
         close_action = Gio.SimpleAction.new("close", None)
-        close_action.connect("activate", _gui_globals.layout_manager.close_terminal, self, page, notebook)
+        close_action.connect("activate", _gui_globals.layout_manager.close_terminal, self)
         action_group.add_action(close_action)
         menu_model.append("Close", "term.close")
 
@@ -506,7 +517,6 @@ class VteTerminal(Vte.Terminal):
                     if command_str:
                         if is_command:
                             try:
-                                #print(f"action: {command_str}")
                                 msg = json.loads(command_str)
                                 action = msg.get('action')
                                 output = None
@@ -526,7 +536,6 @@ class VteTerminal(Vte.Terminal):
                                         output = _utils.substitute_variables(variable, self.pulse_conn, self.proxy_port)
 
                                 if output:
-                                    #print(f"output: {output}")
                                     self.orchestrator_stdin.write(f"{output}\n".encode('utf-8'), None)
                                     self.orchestrator_stdin.flush(None)
 

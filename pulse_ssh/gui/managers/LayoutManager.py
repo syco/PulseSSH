@@ -144,7 +144,11 @@ class LayoutManager:
             else:
                 parent.set_end_child(paned)
 
-    def unsplit_terminal(self, action, param, terminal, source_page, source_notebook):
+    def unsplit_terminal(self, action, param, terminal):
+        notebook, page = terminal.get_ancestor_page()
+        if not notebook or not page:
+            return
+
         source_scrolled_window = terminal.get_parent()
         parent = source_scrolled_window.get_parent()
         if not parent:
@@ -163,7 +167,7 @@ class LayoutManager:
 
             boxy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             boxy.append(source_scrolled_window)
-            page = source_notebook.append(boxy)
+            page = notebook.append(boxy)
             self.app_window.updatePageTitle(page)
 
             grandparent = parent.get_parent()
@@ -185,9 +189,13 @@ class LayoutManager:
                 if term:
                     term.grab_focus()
 
-            self.app_window.updatePageTitle(source_page)
+            self.app_window.updatePageTitle(page)
 
-    def close_terminal(self, action, param, terminal, page, notebook):
+    def close_terminal(self, action, param, terminal):
+        notebook, page = terminal.get_ancestor_page()
+        if not notebook or not page:
+            return
+
         _gui_globals.cluster_manager.leave_cluster(terminal)
         source_scrolled_window = terminal.get_parent()
         parent = source_scrolled_window.get_parent()
@@ -232,3 +240,35 @@ class LayoutManager:
                     term.grab_focus()
 
             self.app_window.updatePageTitle(page)
+
+    def detatch_terminal(self, action, param, terminal):
+        notebook, page = terminal.get_ancestor_page()
+        if not notebook or not page:
+            return
+
+        new_notebook = self.app_window._on_create_window(notebook)
+        if new_notebook:
+            new_page = notebook.transfer_page(page, new_notebook, 0)
+            if new_page:
+                new_notebook.set_selected_page(new_page)
+                first_terminal = self.app_window._find_first_terminal_in_widget(new_page.get_child())
+                if first_terminal:
+                    first_terminal.grab_focus()
+            if notebook != _gui_globals.all_notebooks[0] and notebook.get_n_pages() == 0:
+                window_to_close = notebook.get_ancestor(Gtk.ApplicationWindow)
+                if window_to_close: window_to_close.close()
+
+    def attach_terminal(self, action, param, terminal):
+        notebook, page = terminal.get_ancestor_page()
+        if not notebook or not page:
+            return
+
+        new_page = notebook.transfer_page(page, _gui_globals.all_notebooks[0], _gui_globals.all_notebooks[0].get_n_pages())
+        if new_page:
+            _gui_globals.all_notebooks[0].set_selected_page(new_page)
+            first_terminal = self.app_window._find_first_terminal_in_widget(new_page.get_child())
+            if first_terminal:
+                first_terminal.grab_focus()
+        if notebook != _gui_globals.all_notebooks[0] and notebook.get_n_pages() == 0:
+            window_to_close = notebook.get_ancestor(Gtk.ApplicationWindow)
+            if window_to_close: window_to_close.close()
