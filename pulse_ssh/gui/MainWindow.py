@@ -17,6 +17,7 @@ import math
 import os
 import pulse_ssh.data.Connection as _connection
 import pulse_ssh.Globals as _globals
+import pulse_ssh.gui.dialogs.PasswordDialog as _password_dialog
 import pulse_ssh.gui.Globals as _gui_globals
 import pulse_ssh.gui.managers.ClusterManager as _cluster_manager
 import pulse_ssh.gui.managers.LayoutManager as _layout_manager
@@ -82,6 +83,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.split_view.set_sidebar_position(Gtk.PositionType.RIGHT if _globals.app_config.sidebar_on_right else Gtk.PositionType.LEFT)
 
     def _build_ui(self):
+        self.connect("realize", self.on_realize)
+
         self.connect("close-request", self.on_app_close_request)
 
         self.panel_stack = Adw.ViewStack()
@@ -146,6 +149,31 @@ class MainWindow(Gtk.ApplicationWindow):
         _gui_globals.shortcut_manager._setup_shortcuts_for_window(self)
 
         self.connections_view.list_view.grab_focus()
+
+    def on_realize(self, widget):
+        if _globals.app_config.encryption_enabled and _globals.app_config.encryption_canary:
+            self._prompt_for_decryption_password()
+
+    def _prompt_for_decryption_password(self):
+        dialog = _password_dialog.PasswordDialog(
+            self,
+            "Decryption Password Required",
+            "Your configuration is encrypted. Please enter the password to continue."
+        )
+
+        def on_response(d, response_id, password):
+            if response_id == Gtk.ResponseType.OK and password:
+                if _utils.verify_encryption_password(password):
+                    return
+            # If user cancels or password is wrong, show fail dialog and quit.
+
+            fail_dialog = Adw.MessageDialog(transient_for=self, modal=True, heading="Incorrect Password", body="The password was incorrect. The application will now exit.")
+            fail_dialog.add_response("ok", "OK")
+            fail_dialog.connect("response", lambda *_: self.get_application().quit())
+            fail_dialog.present()
+
+        dialog.connect("response", on_response)
+        dialog.present()
 
     def _on_create_window(self, tab_view):
         app = self.get_application()
