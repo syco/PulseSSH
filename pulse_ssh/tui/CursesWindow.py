@@ -10,15 +10,56 @@ import traceback
 
 class CursesWindow:
     def __init__(self):
-        self.original_tree = self._build_tree_structure()
+        self.original_tree = None
 
     def run(self):
         try:
+            if _globals.app_config.encryption_enabled and _globals.app_config.encryption_canary:
+                password = self._get_password_input()
+                if not _utils.verify_encryption_password(password):
+                    print("Incorrect password. The application will now exit.")
+                    sys.exit(1)
+                if not _utils.decrypt_all_connections():
+                    print("Failed to decrypt connection data. Check for configuration corruption. The application will now exit.")
+                    sys.exit(1)
+
+            self.original_tree = self._build_tree_structure()
             curses.wrapper(self._curses_main)
         except Exception as e:
             curses.endwin()
             print(f"An error occurred: {e}")
             print(traceback.format_exc())
+
+    def _get_password_input(self):
+        def get_pass(stdscr):
+            stdscr.clear()
+            stdscr.addstr(0, 0, "Decryption Password Required")
+            stdscr.addstr(1, 0, "Your configuration is encrypted. Please enter the password to continue.")
+            stdscr.addstr(3, 0, "Password: ")
+            stdscr.refresh()
+
+            curses.noecho()
+            curses.curs_set(1)
+
+            password = ""
+            while True:
+                char = stdscr.getch()
+                if char == 10:
+                    break
+                elif char == curses.KEY_BACKSPACE or char == 127:
+                    if password:
+                        password = password[:-1]
+                        h, w = stdscr.getyx()
+                        stdscr.move(h, w - 1)
+                        stdscr.delch()
+                elif 32 <= char <= 126:
+                    password += chr(char)
+                    stdscr.addstr("*")
+
+            curses.curs_set(0)
+            return password
+
+        return curses.wrapper(get_pass)
 
     def _cleanup_and_exit(self, signum, frame):
         sys.exit(0)
