@@ -15,8 +15,6 @@ from gi.repository import Gtk  # type: ignore
 from typing import Optional
 import os
 import pulse_ssh.data.Connection as _connection
-import pulse_ssh.Globals as _globals
-import pulse_ssh.Utils as _utils
 
 class ConnectionDialog(Adw.Window):
     __gsignals__ = {
@@ -128,14 +126,7 @@ class ConnectionDialog(Adw.Window):
         behavior_group = Adw.PreferencesGroup()
         behavior_page.add(behavior_group)
 
-        decrypted_passphrase = ""
-        if self.conn and self.conn.key_passphrase:
-            if _globals.app_config.encryption_enabled:
-                decrypted_passphrase = _utils.decrypt_string(self.conn.key_passphrase) or ""
-            else:
-                decrypted_passphrase = self.conn.key_passphrase
-
-        self.key_passphrase = Adw.PasswordEntryRow(title="Key Passphrase", text=decrypted_passphrase, activates_default=True)
+        self.key_passphrase = Adw.PasswordEntryRow(title="Key Passphrase", text=self.conn.key_passphrase if self.conn and self.conn.key_passphrase else "")
 
         self.use_sudo = Adw.SwitchRow(
             title="Execute with sudo",
@@ -144,14 +135,7 @@ class ConnectionDialog(Adw.Window):
         )
         behavior_group.add(self.use_sudo)
 
-        decrypted_password = ""
-        if self.conn and self.conn.password:
-            if _globals.app_config.encryption_enabled:
-                decrypted_password = _utils.decrypt_string(self.conn.password) or ""
-            else:
-                decrypted_password = self.conn.password
-
-        self.password = Adw.PasswordEntryRow(title="Password", text=decrypted_password, activates_default=True)
+        self.password = Adw.PasswordEntryRow(title="Password", text=self.conn.password if self.conn and self.conn.password else "")
         behavior_group.add(self.password)
 
         self.use_sshpass = Adw.SwitchRow(
@@ -440,7 +424,9 @@ class ConnectionDialog(Adw.Window):
             host=self.host.get_text(),
             port=int(self.port.get_value()),
             user=self.user.get_text(),
+            password=self.password.get_text() or None if self.use_sshpass.get_active() else None,
             identity_file=self.identity_file.get_text() or None,
+            key_passphrase=self.key_passphrase.get_text() or None,
             prepend_cmds=get_scripts_from_list(self.prepend_cmds_list),
             local_cmds=get_cmds_from_list(self.local_cmds_list),
             remote_cmds=get_cmds_from_list(self.remote_cmds_list),
@@ -455,17 +441,6 @@ class ConnectionDialog(Adw.Window):
             use_sudo=self.use_sudo.get_active(),
             use_sshpass=self.use_sshpass.get_active(),
         )
-
-        password = self.password.get_text() or None if self.use_sshpass.get_active() else None
-        key_passphrase = self.key_passphrase.get_text() or None
-
-        if _globals.app_config.encryption_enabled:
-            new_conn.password = _utils.encrypt_string(password) if password else None
-            new_conn.key_passphrase = _utils.encrypt_string(key_passphrase) if key_passphrase else None
-        else:
-            new_conn.password = password
-            new_conn.key_passphrase = key_passphrase
-
         if self.conn and hasattr(self.conn, 'uuid'):
             new_conn.uuid = self.conn.uuid
 

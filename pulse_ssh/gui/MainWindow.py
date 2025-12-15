@@ -164,8 +164,11 @@ class MainWindow(Gtk.ApplicationWindow):
         def on_response(d, response_id, password):
             if response_id == Gtk.ResponseType.OK and password:
                 if _utils.verify_encryption_password(password):
-                    return
-            # If user cancels or password is wrong, show fail dialog and quit.
+                    if _utils.decrypt_all_connections():
+                        return  # Success
+                    else:
+                        # Decryption failed, show a different error
+                        fail_dialog = Adw.MessageDialog(transient_for=self, modal=True, heading="Decryption Failed", body="Could not decrypt connection data. The configuration might be corrupted. The application will now exit.")
 
             fail_dialog = Adw.MessageDialog(transient_for=self, modal=True, heading="Incorrect Password", body="The password was incorrect. The application will now exit.")
             fail_dialog.add_response("ok", "OK")

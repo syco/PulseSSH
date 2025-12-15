@@ -507,12 +507,10 @@ class AppConfigDialog(Adw.Window):
             dialog.connect("response", on_response)
             dialog.present()
         else:
-            # Disabling encryption
             _globals.app_config.encryption_canary = None
             _globals.encryption_key = None
 
     def _on_change_password_clicked(self, button):
-        # Step 1: Verify current password
         verify_dialog = _password_dialog.PasswordDialog(
             self,
             "Verify Current Password",
@@ -522,10 +520,8 @@ class AppConfigDialog(Adw.Window):
         def on_verify_response(d, response_id, password):
             if response_id == Gtk.ResponseType.OK and password:
                 if _utils.verify_encryption_password(password):
-                    # Correct password, proceed to set new one
                     self._prompt_for_new_password()
                 else:
-                    # Incorrect password
                     error_dialog = Adw.MessageDialog(
                         transient_for=self,
                         modal=True,
@@ -540,7 +536,6 @@ class AppConfigDialog(Adw.Window):
         verify_dialog.present()
 
     def _prompt_for_new_password(self):
-        # Step 2: Set new password
         dialog = _password_dialog.PasswordDialog(
             self,
             "Set New Password",

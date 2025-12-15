@@ -33,7 +33,7 @@ local_connection = _connection.Connection(
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-ENCRYPTION_CANARY_PLAINTEXT = "aabbcc"
+ENCRYPTION_CANARY_PLAINTEXT = "d11d1ec3692ce6d554068424915baf630064b457"
 
 def _derive_key(password: str, salt: bytes) -> bytes:
     """Derives a cryptographic key from a password and salt."""
@@ -98,6 +98,20 @@ def decrypt_string(encrypted_text: str) -> Optional[str]:
         return fernet.decrypt(decoded_encrypted_text).decode()
     except (InvalidToken, ValueError, TypeError):
         return None
+
+def decrypt_all_connections() -> bool:
+    """Iterates and decrypts all connection passwords and passphrases."""
+    if not _globals.encryption_key:
+        return False
+    try:
+        for conn in _globals.connections.values():
+            if conn.password:
+                conn.password = decrypt_string(conn.password)
+            if conn.key_passphrase:
+                conn.key_passphrase = decrypt_string(conn.key_passphrase)
+        return True
+    except (InvalidToken, ValueError, TypeError):
+        return False
 
 def load_themes() -> Dict:
     themes = {}
@@ -175,9 +189,21 @@ def save_app_config(config_dir: str, readonly: bool, app_config_: _app_config.Ap
     os.makedirs(config_dir, exist_ok=True)
     cfg_path = os.path.join(config_dir, "settings.json")
 
+    connections_to_save = []
+    for c in connections_.values():
+        if c.uuid == "local":
+            continue
+        conn_dict = asdict(c)
+        if _globals.encryption_key:
+            if conn_dict.get('password'):
+                conn_dict['password'] = encrypt_string(conn_dict['password'])
+            if conn_dict.get('key_passphrase'):
+                conn_dict['key_passphrase'] = encrypt_string(conn_dict['key_passphrase'])
+        connections_to_save.append(conn_dict)
+
     data = {
         'config': asdict(app_config_),
-        'connections': [asdict(c) for c in connections_.values() if c.uuid != "local"],
+        'connections': connections_to_save,
         'clusters': [asdict(c) for c in clusters_.values()]
     }
     with open(cfg_path, 'w') as f:
