@@ -118,6 +118,7 @@ class AppConfigDialog(Adw.Window):
         split_view.set_content(Adw.NavigationPage.new(self.stack, "Settings"))
 
         self._build_appearance_page(config)
+        self._build_custom_css_page(config)
         self._build_behavior_page(config)
         self._build_scrolling_page(config)
         self._build_encryption_page(config)
@@ -193,6 +194,33 @@ class AppConfigDialog(Adw.Window):
 
         self.sidebar_on_right = Adw.SwitchRow(title="Show Sidebar on the Right", active=config.sidebar_on_right)
         appearance_group.add(self.sidebar_on_right)
+
+    def _build_custom_css_page(self, config: _app_config.AppConfig):
+        page = Adw.PreferencesPage()
+        self.stack.add_titled(page, "custom_css", "Custom CSS")
+
+        custom_css_group = Adw.PreferencesGroup()
+        page.add(custom_css_group)
+
+        self.custom_css_view = Gtk.TextView(
+            wrap_mode=Gtk.WrapMode.WORD_CHAR,
+            monospace=True,
+            accepts_tab=True
+        )
+        tabs = Pango.TabArray.new(1, True)
+        tabs.set_tab(0, Pango.TabAlign.LEFT, 10 * self.custom_css_view.get_pango_context().get_font_description().get_size() / Pango.SCALE)
+        self.custom_css_view.set_tabs(tabs)
+
+        self.custom_css_buffer = self.custom_css_view.get_buffer()
+        self.custom_css_buffer.set_text(config.custom_css or "")
+
+        css_scrolled_window = Gtk.ScrolledWindow(
+            hexpand=True,
+            vexpand=True,
+            min_content_height=150
+        )
+        css_scrolled_window.set_child(self.custom_css_view)
+        custom_css_group.add(css_scrolled_window)
 
     def _build_behavior_page(self, config: _app_config.AppConfig):
         page = Adw.PreferencesPage()
@@ -587,6 +615,10 @@ class AppConfigDialog(Adw.Window):
                 idx += 1
             return scripts
 
+        start_iter = self.custom_css_buffer.get_start_iter()
+        end_iter = self.custom_css_buffer.get_end_iter()
+        custom_css_text = self.custom_css_buffer.get_text(start_iter, end_iter, True)
+
         return _app_config.AppConfig(
             font_family=font_desc.get_family(),
             font_size=int(font_size),
@@ -617,4 +649,5 @@ class AppConfigDialog(Adw.Window):
             scp_path=self.scp_path_entry.get_text(),
             sshpass_path=self.sshpass_path_entry.get_text(),
             sudo_path=self.sudo_path_entry.get_text(),
+            custom_css=custom_css_text,
         )

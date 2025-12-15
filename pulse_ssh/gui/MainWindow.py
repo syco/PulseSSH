@@ -57,21 +57,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.split_view = Adw.NavigationSplitView()
 
+        self.css_provider = Gtk.CssProvider()
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(), self.css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
         self.apply_config_settings()
         self._build_ui()
-
-        css_provider = Gtk.CssProvider()
-        css_provider.load_from_data(b"""
-        window.background {
-            border-radius: 3px;
-        }
-        stackswitcher button {
-            border-radius: 0;
-        }
-        """)
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
 
     def apply_config_settings(self):
         color_scheme_map = {
@@ -81,6 +73,7 @@ class MainWindow(Gtk.ApplicationWindow):
         }
         Adw.StyleManager.get_default().set_color_scheme(color_scheme_map.get(_globals.app_config.color_scheme, Adw.ColorScheme.DEFAULT))
         self.split_view.set_sidebar_position(Gtk.PositionType.RIGHT if _globals.app_config.sidebar_on_right else Gtk.PositionType.LEFT)
+        self.css_provider.load_from_data((_globals.app_config.custom_css or "").encode('utf-8'))
 
     def _build_ui(self):
         self.connect("realize", self.on_realize)

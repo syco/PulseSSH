@@ -10,6 +10,7 @@ class AppConfig:
     font_family: str = "Monospace"
     font_size: int = 12
     theme: str = "WhiteOnBlack"
+    custom_css: str = "* { \n    border-radius: 3px;\n}"
     cursor_shape: str = "block"
     split_at_root: bool = False
     on_disconnect_behavior: str = "wait_for_key"
