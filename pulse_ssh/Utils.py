@@ -268,23 +268,20 @@ def build_ssh_command(app_config: _app_config.AppConfig, connection: _connection
     if connection.use_sshpass and connection.password:
         ssh_base_cmd = f"{app_config.sshpass_path} -p {shlex.quote(connection.password)} {ssh_base_cmd}"
 
-    ssh_options = []
-    if connection.proxy_jump and connection.proxy_jump in _globals.connections:
-        jump_conn = _globals.connections[connection.proxy_jump]
-        jump_host_string = jump_conn.host if not jump_conn.user else f"{jump_conn.user}@{jump_conn.host}"
-        ssh_options.extend(['-J', jump_host_string])
-
     ssh_cmd_parts = shlex.split(ssh_base_cmd) + ['-p', str(connection.port)]
     if connection.identity_file:
         ssh_cmd_parts += ['-i', connection.identity_file]
+
+    if connection.proxy_jump and connection.proxy_jump in _globals.connections:
+        jump_conn = _globals.connections[connection.proxy_jump]
+        jump_host_string = jump_conn.host if not jump_conn.user else f"{jump_conn.user}@{jump_conn.host}"
+        ssh_cmd_parts += ['-J', jump_host_string]
 
     if app_config.ssh_forward_agent or connection.ssh_forward_agent: ssh_cmd_parts.append('-A')
     if app_config.ssh_compression or connection.ssh_compression: ssh_cmd_parts.append('-C')
     if app_config.ssh_x11_forwarding or connection.ssh_x11_forwarding: ssh_cmd_parts.append('-X')
     if app_config.ssh_verbose or connection.ssh_verbose: ssh_cmd_parts.append('-v')
     if app_config.ssh_force_pty or connection.ssh_force_pty: ssh_cmd_parts.append('-t')
-
-    ssh_cmd_parts.extend(ssh_options)
 
     proxy_port = None
     if app_config.ssh_unique_sock_proxy or connection.ssh_unique_sock_proxy:
@@ -325,7 +322,11 @@ def build_sftp_command(app_config: _app_config.AppConfig, connection: _connectio
     if connection.proxy_jump and connection.proxy_jump in _globals.connections:
         jump_conn = _globals.connections[connection.proxy_jump]
         jump_host_string = jump_conn.host if not jump_conn.user else f"{jump_conn.user}@{jump_conn.host}"
-        ssh_cmd_parts.extend(['-J', jump_host_string])
+        ssh_cmd_parts +=  ['-J', jump_host_string]
+
+    if app_config.ssh_forward_agent or connection.ssh_forward_agent: ssh_cmd_parts.append('-A')
+    if app_config.ssh_compression or connection.ssh_compression: ssh_cmd_parts.append('-C')
+    if app_config.ssh_verbose or connection.ssh_verbose: ssh_cmd_parts.append('-v')
 
     combined_options = list(dict.fromkeys(app_config.ssh_additional_options + connection.ssh_additional_options))
     for option in combined_options:
