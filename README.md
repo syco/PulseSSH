@@ -6,64 +6,80 @@ PulseSSH is a modern SSH terminal manager designed for productivity and ease of 
 
 *Fig. 1: Dashboard with foldered connections and split terminals.*
 
-## Features
+## Key Features
 
-- **Multi-Panel Terminal Layouts**
-  Organize and view several terminals in split or tab layouts, switching easily between views.
+### Advanced Terminal Management
+- **Multi-Panel & Tabbed Layouts**: Organize terminals in split-pane (vertical/horizontal) or tabbed layouts. Easily switch between views to manage multiple sessions efficiently.
+- **Smart Splitting**: Intelligently split terminals from the root or the currently active panel.
+- **Local & Remote Terminals**: Seamlessly launch both local shell sessions and remote SSH connections.
+- **Customizable Shell**: Define a default shell or specify one per connection.
 
-- **Connection Management**
-  - Save SSH and local connections with custom names, credentials, and options.
-  - Group connections in folders for quick access.
-  - Configure clusters for batch or parallel SSH sessions.
+### Powerful Connection & Session Management
+- **Organize with Folders**: Group connections into folders and sub-folders for a clean and structured workspace.
+- **Detailed Connection Profiles**: Save SSH and local connections with comprehensive settings:
+  - **Credentials**: Store usernames, passwords, and identity file paths.
+  - **Sudo**: Configure automatic sudo password entry for privileged commands.
+  - **Custom Options**: Set connection timeouts, keep-alive intervals, and more.
+- **Search & Filter**: Quickly find connections in the sidebar using the built-in search functionality.
 
-- **Cluster Sessions**
-  - Assign multiple connections to a cluster and launch them in tabs or panels.
-  - Filter and select connections with ease.
+### Clusters for Bulk Operations
+- **Batch Sessions**: Group multiple connections into a "Cluster" to launch them all at once.
+- **Flexible Launch**: Open cluster connections in separate tabs or a tiled split-pane layout.
+- **Easy Selection**: Filter and select which connections from your list to include in a cluster.
 
-- **Powerful Configuration System**
-  - Comprehensive options for connections, behaviors, SSH/SFTP settings.
-  - Script hooks for pre/post local and remote actions, remote scripting, and manual scripts.
-  - Customizable appearance: fonts, color schemes, theme, cursor shape, and more.
-  - Add global binaries, environment variables, and keyboard shortcuts.
+### Automation with Scripts & Hooks
+- **Connection Hooks**: Automate tasks by running custom scripts at different stages:
+  - **Pre/Post-Connect (Local)**: Execute commands on your local machine before connecting or after disconnecting.
+  - **Pre/Post-Connect (Remote)**: Run commands on the remote server immediately after login or before logout.
+- **Manual Scripts**: Store and run frequently used scripts or command batches on demand.
+- **Remote Scripting**: Define scripts that can be executed on the remote machine during a session.
 
-- **Secure Authentication**
-  - Store identity files securely.
-  - Supports key passphrases, and password-protected logins.
-  - Toggle visibility for credentials while editing.
+### Deep Customization
+- **Appearance**: Tailor the look and feel of your terminal:
+  - **Themes**: Switch between light and dark themes.
+  - **Fonts & Colors**: Customize the terminal font, size, and color scheme.
+  - **Cursor Style**: Choose from block, underline, or bar cursor shapes.
+- **Behaviors**: Fine-tune application behavior, such as default split direction, shell selection, and startup settings.
+- **Global Settings**:
+  - **Binaries**: Define paths to global binaries for use in scripts.
+  - **Environment Variables**: Set global environment variables available to all sessions.
+  - **Keyboard Shortcuts**: Configure custom keybindings for common actions.
 
-- **Automation and Scripts**
-  - Trigger custom scripts automatically before or after connection.
-  - Manage remote tasks, command batches, and manual scripts centrally.
+### Security
+- **Secure Credential Storage**: Store identity files and manage passphrases securely.
+- **Password Protection**: Supports password-based logins for SSH connections.
+- **Visibility Toggle**: Hide or show sensitive credentials like passwords and passphrases in the configuration UI.
 
-- **Advanced UI**
-  - Sidebar for folders/connections, collapsible for distraction-free working.
-  - Smart split logic and customizable behaviors (e.g., root split, shell selection).
-  - Configurable application settings for fine-tuned control.
+### User Experience
+- **Collapsible Sidebar**: Maximize your terminal workspace with a collapsible sidebar.
+- **Intuitive Dialogs**: Easily manage connections, clusters, and settings through clean and organized dialogs.
+- **SFTP Integration**: Quickly open an SFTP session for the active terminal to transfer files.
+- **Command Palette**: Access commands and actions quickly with a searchable command palette.
 
 - **Cross-Platform**
-  - Works across major operating systems with a consistent experience.
+  - Enjoy a consistent and native experience on Windows, macOS, and Linux.
 
 ## Screenshots
 
 ### Main Terminal Dashboard
 <img width="930" height="758" alt="image" src="https://github.com/user-attachments/assets/b353605f-7111-48b3-9120-1bd192b3c538" />
 
-*Organize terminals and connections with the sidebar. Supports split layouts and multiple SSH sessions.*
+*Organize connections in the sidebar and manage multiple sessions with split layouts and tabs.*
 
 ### Connection Configuration
 <img width="850" height="717" alt="image" src="https://github.com/user-attachments/assets/d92d8cc8-67a9-4aab-8b31-a1d88fd17757" />
 
-*Create or edit SSH connections with detailed settings, including identity files, custom scripts, and sudo.*
+*Configure connections with detailed settings for authentication, automation scripts, and sudo.*
 
 ### Cluster Configuration
 <img width="850" height="496" alt="image" src="https://github.com/user-attachments/assets/e5da4859-9b5d-4c60-a5f3-e0d4760aee68" />
 
-*Batch connections together, choose tabs or split view, and filter/select among available connections.*
+*Group connections into a cluster for batch operations, with options for tabbed or split-pane launch.*
 
 ### Application Settings
 <img width="850" height="496" alt="image" src="https://github.com/user-attachments/assets/8cf70084-8b57-4e00-b259-f89b9435b5ca" />
 
-*Customize appearance, behaviors, shortcuts, variables, and more in the global Settings panel.*
+*Customize appearance, behaviors, shortcuts, and more in the global Settings panel.*
 
 ### About PulseSSH
 <img width="850" height="496" alt="image" src="https://github.com/user-attachments/assets/7db52841-af92-4457-8583-f9dcace02000" />
