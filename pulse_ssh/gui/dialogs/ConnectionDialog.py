@@ -492,8 +492,8 @@ class ConnectionDialog(Adw.Window):
             ssh_x11_forwarding=self.ssh_x11_forwarding.get_active(),
             ssh_verbose=self.ssh_verbose.get_active(),
             ssh_force_pty=self.ssh_force_pty.get_active(),
-            ssh_additional_options=[opt for opt in additional_options if opt],
             ssh_unique_sock_proxy=self.ssh_unique_sock_proxy.get_active(),
+            ssh_additional_options=[opt for opt in additional_options if opt],
             use_sudo=self.use_sudo.get_active(),
             use_sshpass=self.use_sshpass.get_active(),
         )

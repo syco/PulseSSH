@@ -294,24 +294,49 @@ class AppConfigDialog(Adw.Window):
         self.change_password_row.set_visible(config.encryption_enabled)
 
     def _build_ssh_page(self, config: _app_config.AppConfig):
-        page_grid = Gtk.Grid(margin_start=10, margin_end=10, margin_top=10, margin_bottom=10, row_spacing=6, column_spacing=6)
+        page = Adw.PreferencesPage()
+        self.stack.add_titled(page, "ssh_settings", "SSH Options")
 
-        self.ssh_forward_agent = Gtk.CheckButton(label="Enable Agent Forwarding (-A)", active=config.ssh_forward_agent)
-        page_grid.attach(self.ssh_forward_agent, 0, 0, 2, 1)
+        ssh_group = Adw.PreferencesGroup(title="Default SSH Flags")
+        page.add(ssh_group)
 
-        self.ssh_compression = Gtk.CheckButton(label="Enable Compression (-C)", active=config.ssh_compression)
-        page_grid.attach(self.ssh_compression, 0, 1, 2, 1)
+        self.ssh_forward_agent = Adw.SwitchRow(title="Enable Agent Forwarding (-A)", active=config.ssh_forward_agent)
+        ssh_group.add(self.ssh_forward_agent)
 
-        self.ssh_x11_forwarding = Gtk.CheckButton(label="Enable X11 Forwarding (-X)", active=config.ssh_x11_forwarding)
-        page_grid.attach(self.ssh_x11_forwarding, 0, 2, 2, 1)
+        self.ssh_compression = Adw.SwitchRow(title="Enable Compression (-C)", active=config.ssh_compression)
+        ssh_group.add(self.ssh_compression)
 
-        self.ssh_verbose = Gtk.CheckButton(label="Enable Verbose Mode (-v)", active=config.ssh_verbose)
-        page_grid.attach(self.ssh_verbose, 0, 3, 2, 1)
+        self.ssh_x11_forwarding = Adw.SwitchRow(title="Enable X11 Forwarding (-X)", active=config.ssh_x11_forwarding)
+        ssh_group.add(self.ssh_x11_forwarding)
 
-        self.ssh_force_pty = Gtk.CheckButton(label="Force Pseudo-terminal Allocation (-t)", active=config.ssh_force_pty)
-        page_grid.attach(self.ssh_force_pty, 0, 4, 2, 1)
+        self.ssh_verbose = Adw.SwitchRow(title="Enable Verbose Mode (-v)", active=config.ssh_verbose)
+        ssh_group.add(self.ssh_verbose)
 
-        self.stack.add_titled(page_grid, "ssh_settings", "SSH Settings")
+        self.ssh_force_pty = Adw.SwitchRow(title="Force Pseudo-terminal Allocation (-t)", active=config.ssh_force_pty)
+        ssh_group.add(self.ssh_force_pty)
+
+        self.ssh_unique_sock_proxy = Adw.SwitchRow(title="Unique SOCKS Proxy (-D)", subtitle="Creates a SOCKS proxy on a unique local port", active=config.ssh_unique_sock_proxy)
+        ssh_group.add(self.ssh_unique_sock_proxy)
+
+        options_group = Adw.PreferencesGroup(title="Additional Options")
+        page.add(options_group)
+
+        self.additional_options_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True, min_content_height=100)
+        scrolled_window.set_child(self.additional_options_box)
+        options_group.add(scrolled_window)
+
+        if config.ssh_additional_options:
+            for option in config.ssh_additional_options:
+                self._add_option_entry(option)
+
+        add_button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, margin_top=6)
+        add_button = Gtk.Button(icon_name="list-add-symbolic")
+        add_button.connect("clicked", lambda w: self._add_option_entry())
+        add_button.set_halign(Gtk.Align.CENTER)
+        add_button_box.append(add_button)
+        options_group.add(add_button_box)
+
 
         self.local_cmds_list = self._create_cmds_list_page(config.local_cmds)
         self.stack.add_titled(self.local_cmds_list, "local_cmds", "Local Commands")
@@ -597,6 +622,18 @@ class AppConfigDialog(Adw.Window):
         dialog.connect("response", on_response)
         dialog.present()
 
+    def _add_option_entry(self, text=""):
+        entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        entry = Gtk.Entry(text=text, hexpand=True)
+        remove_button = Gtk.Button(icon_name="list-remove-symbolic")
+        remove_button.connect("clicked", self._on_remove_option_clicked, entry_box)
+
+        entry_box.append(entry)
+        entry_box.append(remove_button)
+        self.additional_options_box.append(entry_box)
+
+    def _on_remove_option_clicked(self, button, box_to_remove):
+        self.additional_options_box.remove(box_to_remove)
 
     def get_data(self) -> _app_config.AppConfig:
         font_desc = self.font_chooser.get_font_desc()
@@ -623,6 +660,13 @@ class AppConfigDialog(Adw.Window):
         end_iter = self.custom_css_buffer.get_end_iter()
         custom_css_text = self.custom_css_buffer.get_text(start_iter, end_iter, True)
 
+        additional_options = []
+        child = self.additional_options_box.get_first_child()
+        while child:
+            entry = child.get_first_child()
+            additional_options.append(entry.get_text())
+            child = child.get_next_sibling()
+
         return _app_config.AppConfig(
             font_family=font_desc.get_family(),
             font_size=int(font_size),
@@ -646,6 +690,8 @@ class AppConfigDialog(Adw.Window):
             ssh_x11_forwarding=self.ssh_x11_forwarding.get_active(),
             ssh_verbose=self.ssh_verbose.get_active(),
             ssh_force_pty=self.ssh_force_pty.get_active(),
+            ssh_unique_sock_proxy=self.ssh_unique_sock_proxy.get_active(),
+            ssh_additional_options=[opt for opt in additional_options if opt],
             local_cmds=get_cmds_from_list(self.local_cmds_list),
             remote_cmds=get_cmds_from_list(self.remote_cmds_list),
             ssh_path=self.ssh_path_entry.get_text(),

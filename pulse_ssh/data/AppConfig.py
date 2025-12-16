@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Dict
+from typing import List
 from typing import Optional
 
 @dataclass
@@ -30,6 +31,8 @@ class AppConfig:
     ssh_x11_forwarding: bool = False
     ssh_verbose: bool = False
     ssh_force_pty: bool = False
+    ssh_unique_sock_proxy: bool = False
+    ssh_additional_options: List[str] = field(default_factory=list)
     local_cmds: Dict[str, str] = field(default_factory=dict)
     remote_cmds: Dict[str, str] = field(default_factory=dict)
     ssh_path: str = "/usr/bin/ssh"

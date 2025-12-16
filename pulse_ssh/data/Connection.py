@@ -31,8 +31,8 @@ class Connection:
     ssh_x11_forwarding: bool = False
     ssh_verbose: bool = False
     ssh_force_pty: bool = False
-    ssh_additional_options: List[str] = field(default_factory=list)
     ssh_unique_sock_proxy: bool = False
+    ssh_additional_options: List[str] = field(default_factory=list)
     use_sudo: bool = False
     use_sshpass: bool = False
 
