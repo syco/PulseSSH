@@ -268,6 +268,12 @@ def build_ssh_command(app_config: _app_config.AppConfig, connection: _connection
     if connection.use_sshpass and connection.password:
         ssh_base_cmd = f"{app_config.sshpass_path} -p {shlex.quote(connection.password)} {ssh_base_cmd}"
 
+    ssh_options = []
+    if connection.proxy_jump and connection.proxy_jump in _globals.connections:
+        jump_conn = _globals.connections[connection.proxy_jump]
+        jump_host_string = jump_conn.host if not jump_conn.user else f"{jump_conn.user}@{jump_conn.host}"
+        ssh_options.extend(['-J', jump_host_string])
+
     ssh_cmd_parts = shlex.split(ssh_base_cmd) + ['-p', str(connection.port)]
     if connection.identity_file:
         ssh_cmd_parts += ['-i', connection.identity_file]
@@ -283,6 +289,8 @@ def build_ssh_command(app_config: _app_config.AppConfig, connection: _connection
     if connection.ssh_x11_forwarding and '-X' not in ssh_cmd_parts: ssh_cmd_parts.append('-X')
     if connection.ssh_verbose and '-v' not in ssh_cmd_parts: ssh_cmd_parts.append('-v')
     if connection.ssh_force_pty and '-t' not in ssh_cmd_parts: ssh_cmd_parts.append('-t')
+
+    ssh_cmd_parts.extend(ssh_options)
 
     proxy_port = None
     if connection.ssh_unique_sock_proxy:
@@ -318,6 +326,11 @@ def build_sftp_command(app_config: _app_config.AppConfig, connection: _connectio
     ssh_cmd_parts = shlex.split(ssh_base_cmd) + ['-P', str(connection.port)]
     if connection.identity_file:
         ssh_cmd_parts += ['-i', connection.identity_file]
+
+    if connection.proxy_jump and connection.proxy_jump in _globals.connections:
+        jump_conn = _globals.connections[connection.proxy_jump]
+        jump_host_string = jump_conn.host if not jump_conn.user else f"{jump_conn.user}@{jump_conn.host}"
+        ssh_cmd_parts.extend(['-J', jump_host_string])
 
     for option in connection.ssh_additional_options:
         substituted_option = substitute_variables(option, connection)

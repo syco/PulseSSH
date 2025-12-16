@@ -23,6 +23,7 @@ class Connection:
     prepend_cmds: List[str] = field(default_factory=list)
     local_cmds: Dict[str, str] = field(default_factory=dict)
     remote_cmds: Dict[str, str] = field(default_factory=dict)
+    proxy_jump: Optional[str] = None
     orchestrator_script: Optional[str] = None
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
     ssh_forward_agent: bool = False

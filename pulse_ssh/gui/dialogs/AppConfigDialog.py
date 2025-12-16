@@ -150,7 +150,7 @@ class AppConfigDialog(Adw.Window):
 
         theme_model = Gio.ListStore.new(_string_object.StringObject)
         for name in theme_names:
-            theme_model.append(_string_object.StringObject(name=name))
+            theme_model.append(_string_object.StringObject(name, name))
 
         theme_expression = Gtk.PropertyExpression.new(_string_object.StringObject, None, "name")
 
@@ -605,17 +605,6 @@ class AppConfigDialog(Adw.Window):
         on_disconnect = ON_DISCONNECT[self.on_disconnect.get_selected_item().get_string()]
         cursor_shape = CURSOR_SHAPES[self.cursor_shape.get_selected_item().get_string()]
         color_scheme = COLOR_SCHEMES[self.color_scheme.get_selected_item().get_string()]
-
-        def get_scripts_from_list(page_box):
-            scripts = []
-            list_box = page_box.get_first_child().get_child().get_child()
-            idx = 0
-            while row := list_box.get_row_at_index(idx):
-                row_box = row.get_child()
-                entry = row_box.get_first_child().get_next_sibling()
-                scripts.append(entry.get_text())
-                idx += 1
-            return [script for script in scripts if script]
 
         def get_cmds_from_list(page_box):
             scripts = {}
