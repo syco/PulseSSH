@@ -94,6 +94,7 @@ class ConnectionDialog(Adw.Window):
         else:
             self.type_dropdown.set_selected(0)
         general_group.add(self.type_dropdown)
+        self.type_dropdown.connect("notify::selected-item", self._on_type_changed)
 
         self.folder = Adw.EntryRow(title="Folder", text=self.conn.folder if self.conn else "")
         general_group.add(self.folder)
@@ -164,11 +165,18 @@ class ConnectionDialog(Adw.Window):
         self.remote_cmds_list = self._create_cmds_list_page(self.conn.remote_cmds if self.conn else {})
         self.stack.add_titled(self.remote_cmds_list, "remote_cmds", "Remote Commands")
 
+        self._on_type_changed(self.type_dropdown, None)
+
         return split_view
 
     def _on_use_sshpass_toggled(self, switch, _):
         is_active = switch.get_active()
         self.password.set_sensitive(is_active)
+
+    def _on_type_changed(self, dropdown, _):
+        selected_type = dropdown.get_selected_item().get_string()
+        self.ssh_x11_forwarding.set_visible(selected_type == "ssh")
+        self.ssh_force_pty.set_visible(selected_type == "ssh")
 
     def _create_script_list_page(self, commands):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
@@ -472,9 +480,11 @@ class ConnectionDialog(Adw.Window):
             if _globals.connections.get(selected_jump_uuid):
                 proxy_jump_uuid = _globals.connections[selected_jump_uuid].uuid
 
+        conn_type = self.type_dropdown.get_selected_item().get_string()
+
         new_conn = _connection.Connection(
             name=self.name.get_text(),
-            type=self.type_dropdown.get_selected_item().get_string(),
+            type=conn_type,
             folder=self.folder.get_text().strip().strip('/').replace('//', '/') or "",
             host=self.host.get_text(),
             port=int(self.port.get_value()),
@@ -489,9 +499,9 @@ class ConnectionDialog(Adw.Window):
             orchestrator_script=self.orchestrator_script_entry.get_text() or None,
             ssh_forward_agent=self.ssh_forward_agent.get_active(),
             ssh_compression=self.ssh_compression.get_active(),
-            ssh_x11_forwarding=self.ssh_x11_forwarding.get_active(),
+            ssh_x11_forwarding=self.ssh_x11_forwarding.get_active() if conn_type == "ssh" else False,
             ssh_verbose=self.ssh_verbose.get_active(),
-            ssh_force_pty=self.ssh_force_pty.get_active(),
+            ssh_force_pty=self.ssh_force_pty.get_active() if conn_type == "ssh" else False,
             ssh_unique_sock_proxy=self.ssh_unique_sock_proxy.get_active(),
             ssh_additional_options=[opt for opt in additional_options if opt],
             use_sudo=self.use_sudo.get_active(),
