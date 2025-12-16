@@ -2,7 +2,7 @@
 
 PulseSSH is a modern SSH terminal manager designed for productivity and ease of use. Manage multiple SSH sessions, organize connections into folders, configure clusters, and customize your workspace with a beautiful UI and advanced automation options.
 
-<img width="850" height="650" alt="Screenshot_20251125_214007" src="https://github.com/user-attachments/assets/59ee53a0-eb82-49f2-956d-9f5bba61b138" />
+<img width="930" height="758" alt="image" src="https://github.com/user-attachments/assets/bea56efa-dfab-46ea-942c-b74cc7ee1585" />
 
 *Fig. 1: Dashboard with foldered connections and split terminals.*
 
@@ -46,26 +46,26 @@ PulseSSH is a modern SSH terminal manager designed for productivity and ease of 
 ## Screenshots
 
 ### Main Terminal Dashboard
-<img width="850" height="650" alt="Screenshot_20251125_214007" src="https://github.com/user-attachments/assets/5341eb07-7048-4f6b-a711-5a7750807cb1" />
+<img width="930" height="758" alt="image" src="https://github.com/user-attachments/assets/b353605f-7111-48b3-9120-1bd192b3c538" />
 
 *Organize terminals and connections with the sidebar. Supports split layouts and multiple SSH sessions.*
 
 ### Connection Configuration
-<img width="750" height="742" alt="Screenshot_20251125_214028" src="https://github.com/user-attachments/assets/7afca201-770a-4c33-976f-44bc2a9c57e1" />
+<img width="850" height="717" alt="image" src="https://github.com/user-attachments/assets/d92d8cc8-67a9-4aab-8b31-a1d88fd17757" />
 
 *Create or edit SSH connections with detailed settings, including identity files, custom scripts, and sudo.*
 
 ### Cluster Configuration
-<img width="750" height="742" alt="Screenshot_20251125_214048" src="https://github.com/user-attachments/assets/03aa82b2-cb14-4b18-b736-ac7025ee058a" />
+<img width="850" height="496" alt="image" src="https://github.com/user-attachments/assets/e5da4859-9b5d-4c60-a5f3-e0d4760aee68" />
 
 *Batch connections together, choose tabs or split view, and filter/select among available connections.*
 
 ### Application Settings
-<img width="750" height="742" alt="Screenshot_20251125_214111" src="https://github.com/user-attachments/assets/da4cc081-f0c2-4ce2-b2ef-677c1d189062" />
+<img width="850" height="496" alt="image" src="https://github.com/user-attachments/assets/8cf70084-8b57-4e00-b259-f89b9435b5ca" />
 
 *Customize appearance, behaviors, shortcuts, variables, and more in the global Settings panel.*
 
 ### About PulseSSH
-<img width="750" height="742" alt="Screenshot_20251125_214121" src="https://github.com/user-attachments/assets/57d2480c-f44e-4898-b025-836a43ebb23e" />
+<img width="850" height="496" alt="image" src="https://github.com/user-attachments/assets/7db52841-af92-4457-8583-f9dcace02000" />
 
 *See version information and visit the project website from the About dialog.*
