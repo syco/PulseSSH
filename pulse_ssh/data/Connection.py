@@ -23,6 +23,7 @@ class Connection:
     prepend_cmds: List[str] = field(default_factory=list)
     local_cmds: Dict[str, str] = field(default_factory=dict)
     remote_cmds: Dict[str, str] = field(default_factory=dict)
+    proxy_jump: Optional[str] = None
     orchestrator_script: Optional[str] = None
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
     ssh_forward_agent: bool = False
@@ -30,8 +31,8 @@ class Connection:
     ssh_x11_forwarding: bool = False
     ssh_verbose: bool = False
     ssh_force_pty: bool = False
-    ssh_additional_options: List[str] = field(default_factory=list)
     ssh_unique_sock_proxy: bool = False
+    ssh_additional_options: List[str] = field(default_factory=list)
     use_sudo: bool = False
     use_sshpass: bool = False
 

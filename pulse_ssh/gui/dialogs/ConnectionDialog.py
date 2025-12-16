@@ -14,7 +14,9 @@ from gi.repository import GObject  # type: ignore
 from gi.repository import Gtk  # type: ignore
 from typing import Optional
 import os
+import pulse_ssh.Globals as _globals
 import pulse_ssh.data.Connection as _connection
+import pulse_ssh.gui.views.list_items.StringObject as _string_object
 
 class ConnectionDialog(Adw.Window):
     __gsignals__ = {
@@ -300,6 +302,52 @@ class ConnectionDialog(Adw.Window):
         self.ssh_force_pty = Adw.SwitchRow(title="Force Pseudo-terminal Allocation (-t)", active=self.conn.ssh_force_pty if self.conn else False)
         flags_group.add(self.ssh_force_pty)
 
+        proxy_jump_group = Adw.PreferencesGroup(title="Proxy Jump")
+        page.add(proxy_jump_group)
+
+        self.proxy_jump_connections = {"": "None"}
+        for c in sorted(_globals.connections.values(), key=lambda item: (item.folder or "", item.name)):
+            if self.conn and c.uuid == self.conn.uuid:
+                continue
+            if c.type == "ssh":
+                self.proxy_jump_connections[c.uuid] = f"{c.folder}/{c.name}" if c.folder else c.name
+
+        theme_model = Gio.ListStore.new(_string_object.StringObject)
+        for id, name in self.proxy_jump_connections.items():
+            theme_model.append(_string_object.StringObject(id, name))
+
+        theme_expression = Gtk.PropertyExpression.new(_string_object.StringObject, None, "name")
+
+        theme_filter = Gtk.StringFilter.new(theme_expression)
+        theme_filter.set_ignore_case(True)
+        theme_filter.set_match_mode(Gtk.StringFilterMatchMode.SUBSTRING)
+        filter_model = Gtk.FilterListModel.new(theme_model, theme_filter)
+
+        self.proxy_jump = Gtk.DropDown()
+        self.proxy_jump.set_model(filter_model)
+        self.proxy_jump.set_expression(theme_expression)
+        self.proxy_jump.set_search_match_mode(Gtk.StringFilterMatchMode.SUBSTRING)
+        self.proxy_jump.set_enable_search(True)
+
+        def on_theme_search_changed(dropdown, _):
+            theme_filter.set_search(dropdown.get_search())
+
+        self.proxy_jump.connect("notify::search", on_theme_search_changed)
+
+        if self.conn and self.conn.proxy_jump:
+            for i in range(theme_model.get_n_items()):
+                item = theme_model.get_item(i)
+                if item.id == self.conn.proxy_jump:
+                    self.proxy_jump.set_selected(i)
+                    break
+        else:
+            self.proxy_jump.set_selected(0)
+
+        proxy_jump_row = Adw.ActionRow(title="Jump Host (-J)", activatable_widget=self.proxy_jump)
+        proxy_jump_row.add_suffix(self.proxy_jump)
+        proxy_jump_row.set_activatable_widget(self.proxy_jump)
+        proxy_jump_group.add(proxy_jump_row)
+
         self.ssh_unique_sock_proxy = Adw.SwitchRow(title="Unique SOCKS Proxy (-D)", subtitle="Creates a SOCKS proxy on a unique local port", active=self.conn.ssh_unique_sock_proxy if self.conn else False)
         flags_group.add(self.ssh_unique_sock_proxy)
 
@@ -417,6 +465,13 @@ class ConnectionDialog(Adw.Window):
             additional_options.append(entry.get_text())
             child = child.get_next_sibling()
 
+        proxy_jump_uuid = None
+        selected_jump = self.proxy_jump.get_selected_item()
+        if selected_jump:
+            selected_jump_uuid = selected_jump.id
+            if _globals.connections.get(selected_jump_uuid):
+                proxy_jump_uuid = _globals.connections[selected_jump_uuid].uuid
+
         new_conn = _connection.Connection(
             name=self.name.get_text(),
             type=self.type_dropdown.get_selected_item().get_string(),
@@ -430,14 +485,15 @@ class ConnectionDialog(Adw.Window):
             prepend_cmds=get_scripts_from_list(self.prepend_cmds_list),
             local_cmds=get_cmds_from_list(self.local_cmds_list),
             remote_cmds=get_cmds_from_list(self.remote_cmds_list),
+            proxy_jump=proxy_jump_uuid,
             orchestrator_script=self.orchestrator_script_entry.get_text() or None,
             ssh_forward_agent=self.ssh_forward_agent.get_active(),
             ssh_compression=self.ssh_compression.get_active(),
             ssh_x11_forwarding=self.ssh_x11_forwarding.get_active(),
             ssh_verbose=self.ssh_verbose.get_active(),
             ssh_force_pty=self.ssh_force_pty.get_active(),
-            ssh_additional_options=[opt for opt in additional_options if opt],
             ssh_unique_sock_proxy=self.ssh_unique_sock_proxy.get_active(),
+            ssh_additional_options=[opt for opt in additional_options if opt],
             use_sudo=self.use_sudo.get_active(),
             use_sshpass=self.use_sshpass.get_active(),
         )

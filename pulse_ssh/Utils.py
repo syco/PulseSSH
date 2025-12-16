@@ -268,28 +268,31 @@ def build_ssh_command(app_config: _app_config.AppConfig, connection: _connection
     if connection.use_sshpass and connection.password:
         ssh_base_cmd = f"{app_config.sshpass_path} -p {shlex.quote(connection.password)} {ssh_base_cmd}"
 
+    ssh_options = []
+    if connection.proxy_jump and connection.proxy_jump in _globals.connections:
+        jump_conn = _globals.connections[connection.proxy_jump]
+        jump_host_string = jump_conn.host if not jump_conn.user else f"{jump_conn.user}@{jump_conn.host}"
+        ssh_options.extend(['-J', jump_host_string])
+
     ssh_cmd_parts = shlex.split(ssh_base_cmd) + ['-p', str(connection.port)]
     if connection.identity_file:
         ssh_cmd_parts += ['-i', connection.identity_file]
 
-    if app_config.ssh_forward_agent: ssh_cmd_parts.append('-A')
-    if app_config.ssh_compression: ssh_cmd_parts.append('-C')
-    if app_config.ssh_x11_forwarding: ssh_cmd_parts.append('-X')
-    if app_config.ssh_verbose: ssh_cmd_parts.append('-v')
-    if app_config.ssh_force_pty: ssh_cmd_parts.append('-t')
+    if app_config.ssh_forward_agent or connection.ssh_forward_agent: ssh_cmd_parts.append('-A')
+    if app_config.ssh_compression or connection.ssh_compression: ssh_cmd_parts.append('-C')
+    if app_config.ssh_x11_forwarding or connection.ssh_x11_forwarding: ssh_cmd_parts.append('-X')
+    if app_config.ssh_verbose or connection.ssh_verbose: ssh_cmd_parts.append('-v')
+    if app_config.ssh_force_pty or connection.ssh_force_pty: ssh_cmd_parts.append('-t')
 
-    if connection.ssh_forward_agent and '-A' not in ssh_cmd_parts: ssh_cmd_parts.append('-A')
-    if connection.ssh_compression and '-C' not in ssh_cmd_parts: ssh_cmd_parts.append('-C')
-    if connection.ssh_x11_forwarding and '-X' not in ssh_cmd_parts: ssh_cmd_parts.append('-X')
-    if connection.ssh_verbose and '-v' not in ssh_cmd_parts: ssh_cmd_parts.append('-v')
-    if connection.ssh_force_pty and '-t' not in ssh_cmd_parts: ssh_cmd_parts.append('-t')
+    ssh_cmd_parts.extend(ssh_options)
 
     proxy_port = None
-    if connection.ssh_unique_sock_proxy:
+    if app_config.ssh_unique_sock_proxy or connection.ssh_unique_sock_proxy:
         proxy_port = get_free_port()
         ssh_cmd_parts.extend(['-D', f'localhost:{proxy_port}'])
 
-    for option in connection.ssh_additional_options:
+    combined_options = list(dict.fromkeys(app_config.ssh_additional_options + connection.ssh_additional_options))
+    for option in combined_options:
         substituted_option = substitute_variables(option, connection, proxy_port)
         ssh_cmd_parts.extend(shlex.split(substituted_option))
 
@@ -319,7 +322,13 @@ def build_sftp_command(app_config: _app_config.AppConfig, connection: _connectio
     if connection.identity_file:
         ssh_cmd_parts += ['-i', connection.identity_file]
 
-    for option in connection.ssh_additional_options:
+    if connection.proxy_jump and connection.proxy_jump in _globals.connections:
+        jump_conn = _globals.connections[connection.proxy_jump]
+        jump_host_string = jump_conn.host if not jump_conn.user else f"{jump_conn.user}@{jump_conn.host}"
+        ssh_cmd_parts.extend(['-J', jump_host_string])
+
+    combined_options = list(dict.fromkeys(app_config.ssh_additional_options + connection.ssh_additional_options))
+    for option in combined_options:
         substituted_option = substitute_variables(option, connection)
         ssh_cmd_parts.extend(shlex.split(substituted_option))
 
