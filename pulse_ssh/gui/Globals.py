@@ -50,15 +50,3 @@ def ask_for_cluster_name(parent, callback):
 
     dialog.connect("response", on_response)
     dialog.present()
-
-def show_error_dialog(parent, title, message):
-    dialog = Adw.MessageDialog(
-        transient_for=parent,
-        modal=True,
-        heading=title,
-        body=message
-    )
-    dialog.add_response("ok", "OK")
-    dialog.set_default_response("ok")
-    dialog.connect("response", lambda d, r: d.close())
-    dialog.present()

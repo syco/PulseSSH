@@ -167,7 +167,6 @@ class ShortcutManager:
         if isinstance(terminal, _vte_terminal.VteTerminal):
             notebook, page = terminal.get_ancestor_page()
             if not notebook or not page:
-                _gui_globals.show_error_dialog(self.app_window, "Internal UI Error", "Could not find the parent tab for the disconnected terminal. The tab's status indicator may not update correctly.")
                 return
             _gui_globals.layout_manager.split_terminal_or_tab(None, None, terminal, page, orientation, None, None)
         return True

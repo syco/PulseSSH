@@ -123,16 +123,13 @@ class VteTerminal(Vte.Terminal):
             _gui_globals.command_history[conn_uuid] = []
         _gui_globals.command_history[conn_uuid].append(history_item)
         self.app_window.history_view.populate_tree()
-        self.add_toast(Adw.Toast.new(f"'{substituted_cmd}' finished!"))
-        if not ok or (stderr and len(stderr) > 0):
-            _gui_globals.show_error_dialog(self.get_ancestor(Gtk.ApplicationWindow), "ERROR!!", f"'{substituted_cmd}' failed.\n\n{stderr}")
+        self.add_toast(Adw.Toast.new(GLib.markup_escape_text(f"'{substituted_cmd}' finished!")))
 
     def on_terminal_child_exited(self, terminal, exit_code):
         self.connected = False
 
         notebook, page = self.get_ancestor_page()
         if not notebook or not page:
-            _gui_globals.show_error_dialog(self.get_ancestor(Gtk.ApplicationWindow), "Internal UI Error", "Could not find the parent tab for the disconnected terminal. The tab's status indicator may not update correctly.")
             return
 
         self.app_window.updatePageTitle(page)
@@ -174,7 +171,7 @@ class VteTerminal(Vte.Terminal):
         elif behavior == "restart":
             connect_duration = GLib.get_monotonic_time() - self.connect_time
             if connect_duration < 5 * 1_000_000:
-                self.add_toast(Adw.Toast.new(f"Restart loop detected for '{connection.name}'. Pausing auto-restart."))
+                self.add_toast(Adw.Toast.new(GLib.markup_escape_text(f"Restart loop detected for '{connection.name}'. Pausing auto-restart.")))
                 wait_for_key_behavior()
             else:
                 _gui_globals.layout_manager.replace_terminal(self, _gui_globals.layout_manager.create_terminal(connection, cluster_id, cluster_name))
@@ -409,9 +406,9 @@ class VteTerminal(Vte.Terminal):
         def on_finished(subprocess, result, cmd, conn_uuid):
             try:
                 ok, stdout, stderr = subprocess.communicate_utf8_finish(result)
-                self.add_history_item(self.pulse_conn.uuid, substituted_cmd, stdout, stderr, ok)
+                self.add_history_item(self.pulse_conn.uuid, cmd, stdout, stderr, ok)
             except GLib.Error as e:
-                self.add_history_item(self.pulse_conn.uuid, substituted_cmd, "", e.message, False)
+                self.add_history_item(self.pulse_conn.uuid, cmd, "", e.message, False)
 
         try:
             subprocess = Gio.Subprocess.new([_globals.app_config.shell_program, '-c', substituted_cmd], Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE)
