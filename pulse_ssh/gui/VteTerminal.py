@@ -405,7 +405,7 @@ class VteTerminal(Vte.Terminal):
         return submenu
 
     def run_local_cmd(self, action, param, cmd):
-        substituted_cmd = _utils.substitute_variables(cmd, self.pulse_conn)
+        substituted_cmd = _utils.substitute_variables(cmd, self.pulse_conn, self.proxy_port)
         def on_finished(subprocess, result, cmd, conn_uuid):
             try:
                 ok, stdout, stderr = subprocess.communicate_utf8_finish(result)
@@ -422,10 +422,10 @@ class VteTerminal(Vte.Terminal):
     def run_remote_cmd(self, action, param, cmd):
         if self.pulse_cluster_id and self.pulse_cluster_id in _gui_globals.active_clusters:
             for terminal in _gui_globals.active_clusters[self.pulse_cluster_id].terminals:
-                substituted_cmd = _utils.substitute_variables(cmd, terminal.pulse_conn)
+                substituted_cmd = _utils.substitute_variables(cmd, terminal.pulse_conn, terminal.proxy_port)
                 terminal.feed_child(f"{substituted_cmd}\n".encode('utf-8'))
         else:
-            substituted_cmd = _utils.substitute_variables(cmd, self.pulse_conn)
+            substituted_cmd = _utils.substitute_variables(cmd, self.pulse_conn, self.proxy_port)
             self.feed_child(f"{substituted_cmd}\n".encode('utf-8'))
 
     def paste_clipboard(self):
