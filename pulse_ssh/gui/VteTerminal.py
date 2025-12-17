@@ -206,9 +206,21 @@ class VteTerminal(Vte.Terminal):
         return submenu
 
     def _create_new_cluster(self, terminal):
-        def on_name_received(cluster_name, cluster_id):
+        def on_name_received(cluster_id, cluster_name):
             if cluster_id and cluster_name:
                 _gui_globals.cluster_manager.join_cluster(terminal, cluster_id, cluster_name)
+
+        _gui_globals.ask_for_cluster_name(self.get_ancestor(Gtk.ApplicationWindow), on_name_received)
+
+    def _create_new_page_cluster(self, terminal):
+        def on_name_received(cluster_id, cluster_name):
+            if cluster_id and cluster_name:
+                notebook, page = terminal.get_ancestor_page()
+                if not notebook or not page:
+                    return
+                terminals = self.app_window._find_all_terminals_in_widget(page)
+                for t in terminals:
+                    _gui_globals.cluster_manager.join_cluster(t, cluster_id, cluster_name)
 
         _gui_globals.ask_for_cluster_name(self.get_ancestor(Gtk.ApplicationWindow), on_name_received)
 
@@ -236,6 +248,33 @@ class VteTerminal(Vte.Terminal):
             leave_action.connect("activate", lambda a, p, t=terminal: _gui_globals.cluster_manager.leave_cluster(t))
             action_group.add_action(leave_action)
             submenu.append("Leave Cluster", "term.leave_cluster")
+
+        return submenu
+
+    def _create_page_cluster_submenu(self, terminal, action_group):
+        submenu = Gio.Menu()
+
+        create_action = Gio.SimpleAction.new("create_new_page_cluster", None)
+        create_action.connect("activate", lambda a, p, t=terminal: self._create_new_page_cluster(t))
+        action_group.add_action(create_action)
+        submenu.append("Create New Cluster", "term.create_new_page_cluster")
+
+        if _gui_globals.active_clusters:
+            submenu.append_section(None, Gio.Menu())
+            join_menu = Gio.Menu()
+            for cluster_id, cluster in _gui_globals.active_clusters.items():
+                join_action = Gio.SimpleAction.new(f"join_page_cluster_{cluster_id}", None)
+                join_action.connect("activate", lambda a, p, t=terminal, cid=cluster_id, cna=cluster.name: _gui_globals.cluster_manager.join_page_cluster(t, cid, cna))
+                action_group.add_action(join_action)
+                join_menu.append(cluster.name, f"term.join_page_cluster_{cluster_id}")
+            submenu.append_submenu("Join Existing Cluster", join_menu)
+
+        if terminal.pulse_cluster_id:
+            submenu.append_section(None, Gio.Menu())
+            leave_action = Gio.SimpleAction.new("leave_page_cluster", None)
+            leave_action.connect("activate", lambda a, p, t=terminal: _gui_globals.cluster_manager.leave_page_cluster(t))
+            action_group.add_action(leave_action)
+            submenu.append("Leave Cluster", "term.leave_page_cluster")
 
         return submenu
 
@@ -284,6 +323,9 @@ class VteTerminal(Vte.Terminal):
 
         cluster_submenu = self._create_cluster_submenu(self, action_group)
         menu_model.append_submenu("Cluster", cluster_submenu)
+
+        page_cluster_submenu = self._create_page_cluster_submenu(self, action_group)
+        menu_model.append_submenu("Page Cluster", page_cluster_submenu)
 
         menu_model.append_section(None, Gio.Menu())
 
