@@ -37,3 +37,19 @@ class ClusterManager:
                 del _gui_globals.active_clusters[cluster_id]
 
         terminal.pulse_cluster_id = None
+
+    def join_page_cluster(self, terminal, cluster_id: str, cluster_name: str):
+        notebook, page = terminal.get_ancestor_page()
+        if not notebook or not page:
+            return
+        terminals = self.app_window._find_all_terminals_in_widget(page)
+        for t in terminals:
+            self.join_cluster(t, cluster_id, cluster_name)
+
+    def leave_page_cluster(self, terminal):
+        notebook, page = terminal.get_ancestor_page()
+        if not notebook or not page:
+            return
+        terminals = self.app_window._find_all_terminals_in_widget(page)
+        for t in terminals:
+            self.leave_cluster(t)
