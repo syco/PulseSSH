@@ -9,6 +9,7 @@ gi.require_version('Vte', '3.91')
 from gi.repository import Adw  # type: ignore
 from gi.repository import Gdk  # type: ignore
 from gi.repository import Gio  # type: ignore
+from gi.repository import GLib  # type: ignore
 from gi.repository import GObject  # type: ignore
 from gi.repository import Gtk  # type: ignore
 from gi.repository import Pango  # type: ignore
@@ -601,10 +602,10 @@ class AppConfigDialog(Adw.Window):
         def on_response(d, response_id, new_password):
             if response_id == Gtk.ResponseType.OK and new_password:
                 _utils.set_encryption_password(new_password)
-                toast = Adw.Toast.new("Password changed successfully!")
+                toast = Adw.Toast.new(GLib.markup_escape_text("Password changed successfully!"))
                 self.get_ancestor(Gtk.ApplicationWindow).toast_overlay.add_toast(toast)
             elif response_id == Gtk.ResponseType.OK:
-                toast = Adw.Toast.new("Password cannot be empty.")
+                toast = Adw.Toast.new(GLib.markup_escape_text("Password cannot be empty."))
                 self.get_ancestor(Gtk.ApplicationWindow).toast_overlay.add_toast(toast)
         dialog.connect("response", on_response)
         dialog.present()

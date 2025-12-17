@@ -315,7 +315,7 @@ class ClustersView():
         conns_to_start = [_globals.connections[uuid] for uuid in cluster.connection_uuids if uuid in _globals.connections]
 
         if not conns_to_start:
-            self.app_window.toast_overlay.add_toast(Adw.Toast.new("Cluster has no valid connections."))
+            self.app_window.toast_overlay.add_toast(Adw.Toast.new(GLib.markup_escape_text("Cluster has no valid connections.")))
             return
 
         if cluster.open_mode == "split":
