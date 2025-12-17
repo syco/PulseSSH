@@ -406,30 +406,17 @@ class AppConfigDialog(Adw.Window):
         grid = Gtk.Grid(row_spacing=6, column_spacing=12)
 
         variables = [
+            ("{name}", "The name of the connection."),
+            ("{type}", "The type of the connection (e.g. ssh, sftp)."),
             ("{folder}", "The folder the connection belongs to."),
             ("{host}", "The hostname or IP address."),
+            ("{port}", "The SSH port number."),
+            ("{user}", "The username for the connection."),
+            ("{password}", "The password for the connection (if stored)."),
             ("{identity_file}", "Path to the identity file (if any)."),
             ("{key_passphrase}", "The passphrase for the identity file."),
-            ("{local_cmds}", "The local commands for the connection."),
-            ("{name}", "The name of the connection."),
             ("{orchestrator_script}", "The orchestrator script for the connection."),
-            ("{password}", "The password for the connection (if stored)."),
-            ("{port}", "The SSH port number."),
-            ("{prepend_cmds}", "Commands to prepend to the SSH execution."),
-            ("{proxy_port}", "The dynamic SOCKS proxy port (if enabled)."),
-            ("{remote_cmds}", "The remote commands for the connection."),
-            ("{ssh_additional_options}", "Additional options for the SSH command."),
-            ("{ssh_compression}", "Whether SSH compression is enabled."),
-            ("{ssh_force_pty}", "Whether to force pseudo-terminal allocation."),
-            ("{ssh_forward_agent}", "Whether SSH agent forwarding is enabled."),
-            ("{ssh_unique_sock_proxy}", "Whether a unique SOCKS proxy is enabled."),
-            ("{ssh_verbose}", "Whether SSH verbose mode is enabled."),
-            ("{ssh_x11_forwarding}", "Whether X11 forwarding is enabled."),
-            ("{type}", "The type of the connection (e.g. ssh, sftp)."),
-            ("{use_sshpass}", "Whether sshpass is used for the connection."),
-            ("{use_sudo}", "Whether sudo is used for the connection."),
-            ("{user}", "The username for the connection."),
-            ("{uuid}", "The unique ID of the connection.")
+            ("{proxy_port}", "The dynamic SOCKS proxy port (if enabled).")
         ]
 
         for i, (variable, description) in enumerate(variables):

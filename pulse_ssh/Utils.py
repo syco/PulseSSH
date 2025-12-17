@@ -31,6 +31,20 @@ local_connection = _connection.Connection(
     type="local"
 )
 
+substitute_keys = [
+    "name",
+    "type",
+    "folder",
+    "host",
+    "port",
+    "user",
+    "password",
+    "identity_file",
+    "key_passphrase",
+    "orchestrator_script",
+    "proxy_port"
+]
+
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 ENCRYPTION_CANARY_PLAINTEXT = "d11d1ec3692ce6d554068424915baf630064b457"
@@ -256,7 +270,7 @@ def substitute_variables(command: str, conn: _connection.Connection, proxy_port:
         substitutions['proxy_port'] = proxy_port
 
     for key, value in substitutions.items():
-        if value is not None:
+        if key in substitute_keys and value is not None:
             command = command.replace(f'{{{key}}}', str(value))
     return command
 
