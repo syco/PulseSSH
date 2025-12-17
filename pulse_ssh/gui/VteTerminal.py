@@ -206,14 +206,14 @@ class VteTerminal(Vte.Terminal):
         return submenu
 
     def _create_new_cluster(self, terminal):
-        def on_name_received(cluster_name, cluster_id):
+        def on_name_received(cluster_id, cluster_name):
             if cluster_id and cluster_name:
                 _gui_globals.cluster_manager.join_cluster(terminal, cluster_id, cluster_name)
 
         _gui_globals.ask_for_cluster_name(self.get_ancestor(Gtk.ApplicationWindow), on_name_received)
 
     def _create_new_page_cluster(self, terminal):
-        def on_name_received(cluster_name, cluster_id):
+        def on_name_received(cluster_id, cluster_name):
             if cluster_id and cluster_name:
                 notebook, page = terminal.get_ancestor_page()
                 if not notebook or not page:
