@@ -150,6 +150,9 @@ class MainWindow(BASE_WINDOW_CLASS):
         self.toast_overlay.set_child(toolbar_view)
 
         if _globals.app_config.use_adw_window:
+            header_bar = Adw.HeaderBar()
+            toolbar_view.add_top_bar(header_bar)
+
             self.set_content(self.toast_overlay)
         else:
             self.set_child(self.toast_overlay)
@@ -209,6 +212,9 @@ class MainWindow(BASE_WINDOW_CLASS):
         win.toast_overlay.set_child(toolbar_view)
 
         if _globals.app_config.use_adw_window:
+            header_bar = Adw.HeaderBar()
+            toolbar_view.add_top_bar(header_bar)
+
             win.set_content(win.toast_overlay)
         else:
             win.set_child(win.toast_overlay)
