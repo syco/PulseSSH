@@ -140,11 +140,7 @@ class ConnectionDialog(Adw.Window):
         execution_group = Adw.PreferencesGroup(title="Execution Options")
         details_page.add(execution_group)
 
-        self.use_sshpass = Adw.SwitchRow(
-            title="Use sshpass for password",
-            subtitle="Pass the password via sshpass (less secure)",
-            active=self.conn.use_sshpass if self.conn else False
-        )
+        self.use_sshpass = Adw.SwitchRow(title="Use sshpass for password", subtitle="Pass the password via sshpass (less secure)", active=self.conn.use_sshpass if self.conn else False)
         self.use_sshpass.connect("notify::active", self._on_use_sshpass_toggled)
         execution_group.add(self.use_sshpass)
 
