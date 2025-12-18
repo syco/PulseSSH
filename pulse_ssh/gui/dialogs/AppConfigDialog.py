@@ -659,7 +659,6 @@ class AppConfigDialog(Adw.Window):
             child = child.get_next_sibling()
 
         return _app_config.AppConfig(
-            use_adw_window=self.use_adw_window.get_active(),
             font_family=font_desc.get_family(),
             font_size=int(font_size),
             theme=self.theme.get_selected_item().name,
@@ -674,6 +673,7 @@ class AppConfigDialog(Adw.Window):
             scroll_on_insert=self.scroll_on_insert.get_active(),
             scrollbar_visible=self.scrollbar_visible.get_active(),
             sidebar_on_right=self.sidebar_on_right.get_active(),
+            use_adw_window=self.use_adw_window.get_active(),
             audible_bell=self.audible_bell.get_active(),
             encryption_enabled=self.encryption_enabled.get_active(),
             encryption_canary=_globals.app_config.encryption_canary,

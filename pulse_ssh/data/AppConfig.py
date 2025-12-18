@@ -8,7 +8,6 @@ from typing import Optional
 
 @dataclass
 class AppConfig:
-    use_adw_window: bool = False
     font_family: str = "Monospace"
     font_size: int = 12
     theme: str = "WhiteOnBlack"
@@ -23,6 +22,7 @@ class AppConfig:
     scroll_on_keystroke: bool = True
     scroll_on_insert: bool = True
     sidebar_on_right: bool = False
+    use_adw_window: bool = False
     scrollbar_visible: bool = True
     audible_bell: bool = False
     encryption_enabled: bool = False
