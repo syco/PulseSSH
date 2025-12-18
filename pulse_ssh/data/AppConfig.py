@@ -22,6 +22,7 @@ class AppConfig:
     scroll_on_keystroke: bool = True
     scroll_on_insert: bool = True
     sidebar_on_right: bool = False
+    use_adw_window: bool = False
     scrollbar_visible: bool = True
     audible_bell: bool = False
     encryption_enabled: bool = False

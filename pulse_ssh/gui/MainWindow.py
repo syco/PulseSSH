@@ -28,7 +28,13 @@ import pulse_ssh.gui.views.HistoryView as _history_view
 import pulse_ssh.gui.VteTerminal as _vte_terminal
 import pulse_ssh.Utils as _utils
 
-class MainWindow(Gtk.ApplicationWindow):
+
+if _globals.app_config.use_adw_window:
+    BASE_WINDOW_CLASS = Adw.ApplicationWindow
+else:
+    BASE_WINDOW_CLASS = Gtk.ApplicationWindow
+
+class MainWindow(BASE_WINDOW_CLASS):
     def __init__(self, app):
         super().__init__(application=app, title="PulseSSH")
 
@@ -36,20 +42,7 @@ class MainWindow(Gtk.ApplicationWindow):
         _gui_globals.layout_manager = _layout_manager.LayoutManager(self)
         _gui_globals.shortcut_manager = _shortcut_manager.ShortcutManager(self)
 
-        icon_dir = os.path.join(_utils.project_root, 'res', 'icons', 'hicolor', '512x512', 'apps')
-        icon_name = "pulse_ssh"
-
-        icon_path = os.path.join(icon_dir, f"{icon_name}.png")
-
-        if os.path.exists(icon_path):
-            display = Gdk.Display.get_default()
-            icon_theme = Gtk.IconTheme.get_for_display(display)
-
-            icon_theme.add_search_path(os.path.join(_utils.project_root, 'res', 'icons'))
-
-            self.set_icon_name(icon_name)
-        else:
-            print("Icon file missing:", icon_path)
+        self.fix_icon(self)
 
         self.set_default_size(_gui_globals.cache_config.window_width, _gui_globals.cache_config.window_height)
         if _gui_globals.cache_config.window_maximized:
@@ -64,6 +57,22 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.apply_config_settings()
         self._build_ui()
+
+    def fix_icon(self, window):
+        icon_dir = os.path.join(_utils.project_root, 'res', 'icons', 'hicolor', '512x512', 'apps')
+        icon_name = "pulse_ssh"
+
+        icon_path = os.path.join(icon_dir, f"{icon_name}.png")
+
+        if os.path.exists(icon_path):
+            display = Gdk.Display.get_default()
+            icon_theme = Gtk.IconTheme.get_for_display(display)
+
+            icon_theme.add_search_path(os.path.join(_utils.project_root, 'res', 'icons'))
+
+            window.set_icon_name(icon_name)
+        else:
+            print("Icon file missing:", icon_path)
 
     def apply_config_settings(self):
         color_scheme_map = {
@@ -139,7 +148,14 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.toast_overlay = Adw.ToastOverlay()
         self.toast_overlay.set_child(toolbar_view)
-        self.set_child(self.toast_overlay)
+
+        if _globals.app_config.use_adw_window:
+            header_bar = Adw.HeaderBar()
+            toolbar_view.add_top_bar(header_bar)
+
+            self.set_content(self.toast_overlay)
+        else:
+            self.set_child(self.toast_overlay)
 
         _gui_globals.shortcut_manager._setup_shortcuts_for_window(self)
 
@@ -160,9 +176,8 @@ class MainWindow(Gtk.ApplicationWindow):
             if response_id == Gtk.ResponseType.OK and password:
                 if _utils.verify_encryption_password(password):
                     if _utils.decrypt_all_connections():
-                        return  # Success
+                        return
                     else:
-                        # Decryption failed, show a different error
                         fail_dialog = Adw.MessageDialog(transient_for=self, modal=True, heading="Decryption Failed", body="Could not decrypt connection data. The configuration might be corrupted. The application will now exit.")
 
             fail_dialog = Adw.MessageDialog(transient_for=self, modal=True, heading="Incorrect Password", body="The password was incorrect. The application will now exit.")
@@ -178,8 +193,10 @@ class MainWindow(Gtk.ApplicationWindow):
         if not app:
             return None
 
-        win = Gtk.ApplicationWindow(application=app, title="PulseSSH")
+        win = BASE_WINDOW_CLASS(application=app, title="PulseSSH")
         win._force_quit = False
+
+        self.fix_icon(win)
 
         notebook = Adw.TabView()
         notebook.connect("close-page", self.on_notebook_close_page)
@@ -194,7 +211,13 @@ class MainWindow(Gtk.ApplicationWindow):
         win.toast_overlay = Adw.ToastOverlay()
         win.toast_overlay.set_child(toolbar_view)
 
-        win.set_child(win.toast_overlay)
+        if _globals.app_config.use_adw_window:
+            header_bar = Adw.HeaderBar()
+            toolbar_view.add_top_bar(header_bar)
+
+            win.set_content(win.toast_overlay)
+        else:
+            win.set_child(win.toast_overlay)
         win.set_default_size(800, 600)
         win.present()
 
