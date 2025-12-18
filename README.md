@@ -1,6 +1,6 @@
 # PulseSSH
 
-PulseSSH is a modern SSH terminal manager designed for productivity and ease of use. Manage multiple SSH sessions, organize connections into folders, configure clusters, and customize your workspace with a beautiful UI and advanced automation options.
+PulseSSH is a modern terminal manager designed for productivity and ease of use. Manage multiple SSH, MOSH, SFTP, and FTP sessions, organize connections into folders, configure clusters, and customize your workspace with a beautiful UI and advanced automation options.
 
 <img width="930" height="758" alt="image" src="https://github.com/user-attachments/assets/bea56efa-dfab-46ea-942c-b74cc7ee1585" />
 
@@ -11,12 +11,12 @@ PulseSSH is a modern SSH terminal manager designed for productivity and ease of 
 ### Advanced Terminal Management
 - **Multi-Panel & Tabbed Layouts**: Organize terminals in split-pane (vertical/horizontal) or tabbed layouts. Easily switch between views to manage multiple sessions efficiently.
 - **Smart Splitting**: Intelligently split terminals from the root or the currently active panel.
-- **Local & Remote Terminals**: Seamlessly launch both local shell sessions and remote SSH connections.
+- **Local & Remote Terminals**: Seamlessly launch local shell sessions, remote SSH and MOSH connections, and FTP/SFTP file transfers.
 - **Customizable Shell**: Define a default shell or specify one per connection.
 
 ### Powerful Connection & Session Management
 - **Organize with Folders**: Group connections into folders and sub-folders for a clean and structured workspace.
-- **Detailed Connection Profiles**: Save SSH and local connections with comprehensive settings:
+- **Detailed Connection Profiles**: Save SSH, MOSH, FTP, SFTP, and local connections with comprehensive settings:
   - **Credentials**: Store usernames, passwords, and identity file paths.
   - **Sudo**: Configure automatic sudo password entry for privileged commands.
   - **Custom Options**: Set connection timeouts, keep-alive intervals, and more.

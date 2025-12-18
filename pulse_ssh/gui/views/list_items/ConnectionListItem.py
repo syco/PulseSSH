@@ -17,12 +17,12 @@ class ConnectionListItem(GObject.Object):
     def sort_key(self):
         return self._sort_key
 
-    def __init__(self, name, parent_store: Gio.ListStore, conn_uuid: Optional[str] = None):
+    def __init__(self, name, parent_store: Gio.ListStore, type, conn_uuid: Optional[str] = None):
         super().__init__()
         self.name = name
         self.parent_store = parent_store
+        self.type = type
         self.is_folder = False if conn_uuid else True
         self.conn_uuid = conn_uuid
         self.children_store = None if conn_uuid else Gio.ListStore.new(ConnectionListItem)
-        self.icon_name = ("utilities-terminal-symbolic" if conn_uuid else "folder-symbolic")
         self._sort_key = f"{'0' if self.conn_uuid else '1'}-{self.name.lower()}"

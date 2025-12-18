@@ -25,26 +25,19 @@ class ClustersView():
         self.app_window = app_window
 
     def setup_list_item(self, factory, list_item):
-        icon = Gtk.Image()
         label = Gtk.Label(xalign=0)
-
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        box.append(icon)
-        box.append(label)
+        label.set_use_markup(True)
 
         click_gesture = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
         click_gesture.connect("pressed", self.build_menu, list_item)
-        box.add_controller(click_gesture)
+        label.add_controller(click_gesture)
 
-        list_item.set_child(box)
+        list_item.set_child(label)
 
     def bind_list_item(self, factory, list_item):
-        box = list_item.get_child()
-        icon = box.get_first_child()
-        label = icon.get_next_sibling()
+        label = list_item.get_child()
         item = list_item.get_item()
-        icon.set_from_icon_name(item.icon_name)
-        label.set_text(item.name)
+        label.set_markup(f'<span font_desc="Monospace" weight="bold">▶</span> {item.name}')
 
     def getAdwToolbarView(self) -> Adw.ToolbarView:
         self.root_store = Gio.ListStore(item_type=_cluster_list_item.ClusterListItem)
