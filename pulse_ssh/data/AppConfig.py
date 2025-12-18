@@ -36,6 +36,7 @@ class AppConfig:
     ssh_additional_options: List[str] = field(default_factory=list)
     ssh_remote_cmds: Dict[str, str] = field(default_factory=dict)
     ssh_local_cmds: Dict[str, str] = field(default_factory=dict)
+    mosh_local_echo: str = "adaptive"
     sftp_forward_agent: bool = False
     sftp_compression: bool = False
     sftp_verbose: bool = False
@@ -45,6 +46,7 @@ class AppConfig:
     ftp_trace: bool = False
     ftp_verbose: bool = False
     ssh_path: str = "ssh"
+    mosh_path: str = "mosh"
     sftp_path: str = "sftp"
     ftp_path: str = "ftp"
     sshpass_path: str = "sshpass"

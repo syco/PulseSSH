@@ -88,13 +88,9 @@ class ConnectionDialog(Adw.Window):
         self.name = Adw.EntryRow(title="Name", text=self.conn.name if self.conn else "")
         general_group.add(self.name)
 
-        self.type_dropdown = Adw.ComboRow(title="Type", model=Gtk.StringList.new(["ssh", "sftp", "ftp"]))
-        if self.conn and self.conn.type == "ftp":
-            self.type_dropdown.set_selected(2)
-        elif self.conn and self.conn.type == "sftp":
-            self.type_dropdown.set_selected(1)
-        else:
-            self.type_dropdown.set_selected(0)
+        types = ["ssh", "mosh", "sftp", "ftp"]
+        self.type_dropdown = Adw.ComboRow(title="Type", model=Gtk.StringList.new(types))
+        self.type_dropdown.set_selected(types.index("ssh" if self.conn and self.conn.type else "ssh"))
         general_group.add(self.type_dropdown)
         self.type_dropdown.connect("notify::selected-item", self._on_type_changed)
 
@@ -165,10 +161,13 @@ class ConnectionDialog(Adw.Window):
         self.ssh_local_cmds_list = self._create_cmds_list_page(self.conn.ssh_local_cmds if self.conn else {})
         self.stack.add_titled(self.ssh_local_cmds_list, "ssh_local_cmds", "SSH Local Commands")
 
-        self.sftp_options_page = self._build_sftp_options_page()
+        self.mosh_options_page = self._build_mosh_page()
+        self.stack.add_titled(self.mosh_options_page, "mosh_options", "MOSH Options")
+
+        self.sftp_options_page = self._build_sftp_page()
         self.stack.add_titled(self.sftp_options_page, "sftp_options", "SFTP Options")
 
-        self.ftp_options_page = self._build_ftp_options_page()
+        self.ftp_options_page = self._build_ftp_page()
         self.stack.add_titled(self.ftp_options_page, "ftp_options", "FTP Options")
 
         self._on_type_changed(self.type_dropdown, None)
@@ -182,22 +181,22 @@ class ConnectionDialog(Adw.Window):
     def _on_type_changed(self, dropdown, _):
         selected_type = dropdown.get_selected_item().get_string()
 
-        if selected_type == "ssh":
-            self.port.set_value(22)
-        elif selected_type == "sftp":
-            self.port.set_value(22)
-        elif selected_type == "ftp":
+        if selected_type == "ftp":
             self.port.set_value(21)
+        else:
+            self.port.set_value(22)
 
-        self.stack.get_page(self.ssh_options_page).set_visible(selected_type == "ssh")
-        self.stack.get_page(self.ssh_prepend_cmds_list).set_visible(selected_type == "ssh")
-        self.stack.get_page(self.ssh_orchestrator_script_page).set_visible(selected_type == "ssh")
-        self.stack.get_page(self.ssh_remote_cmds_list).set_visible(selected_type == "ssh")
-        self.stack.get_page(self.ssh_local_cmds_list).set_visible(selected_type == "ssh")
         self.user.set_visible(selected_type != "ftp")
         self.password_group.set_visible(selected_type != "ftp")
         self.identity_group.set_visible(selected_type != "ftp")
         self.use_sshpass.set_visible(selected_type != "ftp")
+
+        self.stack.get_page(self.ssh_options_page).set_visible(selected_type == "ssh" or selected_type == "mosh")
+        self.stack.get_page(self.ssh_prepend_cmds_list).set_visible(selected_type == "ssh" or selected_type == "mosh")
+        self.stack.get_page(self.ssh_orchestrator_script_page).set_visible(selected_type == "ssh" or selected_type == "mosh")
+        self.stack.get_page(self.ssh_remote_cmds_list).set_visible(selected_type == "ssh" or selected_type == "mosh")
+        self.stack.get_page(self.ssh_local_cmds_list).set_visible(selected_type == "ssh" or selected_type == "mosh")
+        self.stack.get_page(self.mosh_options_page).set_visible(selected_type == "mosh")
         self.stack.get_page(self.sftp_options_page).set_visible(selected_type == "sftp")
         self.stack.get_page(self.ftp_options_page).set_visible(selected_type == "ftp")
 
@@ -401,7 +400,25 @@ class ConnectionDialog(Adw.Window):
 
         return page
 
-    def _build_sftp_options_page(self):
+    def _build_mosh_page(self):
+        page = Adw.PreferencesPage()
+
+        mosh_group = Adw.PreferencesGroup(title="MOSH Flags")
+        page.add(mosh_group)
+
+        self.mosh_local_echo = Adw.ComboRow(title="Local Echo (--predict)", model=Gtk.StringList.new(["adaptive", "always", "never", "experimental"]))
+
+        options = ["adaptive", "always", "never", "experimental"]
+        if self.conn and self.conn.mosh_local_echo in options:
+            self.mosh_local_echo.set_selected(options.index(self.conn.mosh_local_echo))
+        else:
+            self.mosh_local_echo.set_selected(0)
+
+        mosh_group.add(self.mosh_local_echo)
+
+        return page
+
+    def _build_sftp_page(self):
         page = Adw.PreferencesPage()
 
         flags_group = Adw.PreferencesGroup(title="SFTP Flags")
@@ -435,7 +452,7 @@ class ConnectionDialog(Adw.Window):
 
         return page
 
-    def _build_ftp_options_page(self):
+    def _build_ftp_page(self):
         page = Adw.PreferencesPage()
 
         flags_group = Adw.PreferencesGroup(title="FTP Flags")
@@ -585,6 +602,7 @@ class ConnectionDialog(Adw.Window):
             ssh_orchestrator_script=self.ssh_orchestrator_script_entry.get_text() or None,
             ssh_remote_cmds=get_cmds_from_list(self.ssh_remote_cmds_list),
             ssh_local_cmds=get_cmds_from_list(self.ssh_local_cmds_list),
+            mosh_local_echo=self.mosh_local_echo.get_selected_item().get_string(),
             sftp_forward_agent=self.sftp_forward_agent.get_active(),
             sftp_compression=self.sftp_compression.get_active(),
             sftp_verbose=self.sftp_verbose.get_active(),

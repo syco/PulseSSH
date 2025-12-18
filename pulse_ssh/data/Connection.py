@@ -33,6 +33,7 @@ class Connection:
     ssh_orchestrator_script: Optional[str] = None
     ssh_remote_cmds: Dict[str, str] = field(default_factory=dict)
     ssh_local_cmds: Dict[str, str] = field(default_factory=dict)
+    mosh_local_echo: str = "adaptive"
     sftp_forward_agent: bool = False
     sftp_compression: bool = False
     sftp_verbose: bool = False

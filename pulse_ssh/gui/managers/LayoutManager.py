@@ -14,6 +14,7 @@ import pulse_ssh.Globals as _globals
 import pulse_ssh.gui.Globals as _gui_globals
 import pulse_ssh.gui.VteTerminalLOCAL as _vte_terminal_local
 import pulse_ssh.gui.VteTerminalSSH as _vte_terminal_ssh
+import pulse_ssh.gui.VteTerminalMOSH as _vte_terminal_mosh
 import pulse_ssh.gui.VteTerminalSFTP as _vte_terminal_sftp
 import pulse_ssh.gui.VteTerminalFTP as _vte_terminal_ftp
 
@@ -62,6 +63,8 @@ class LayoutManager:
         terminal = None
         if conn_obj.type == "ssh":
             terminal = _vte_terminal_ssh.VteTerminalSSH(self.app_window, conn_obj, cluster_id, cluster_name)
+        elif conn_obj.type == "mosh":
+            terminal = _vte_terminal_mosh.VteTerminalMOSH(self.app_window, conn_obj, cluster_id, cluster_name)
         elif conn_obj.type == "sftp":
             terminal = _vte_terminal_sftp.VteTerminalSFTP(self.app_window, conn_obj, cluster_id, cluster_name)
         elif conn_obj.type == "ftp":

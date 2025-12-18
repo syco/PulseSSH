@@ -142,6 +142,9 @@ class AppConfigDialog(Adw.Window):
         self.ssh_local_cmds_list = self._build_cmds_list_page(config.ssh_local_cmds)
         self.stack.add_titled(self.ssh_local_cmds_list, "ssh_local_cmds", "SSH Local Commands")
 
+        mosh_page = self._build_mosh_page(config)
+        self.stack.add_titled(mosh_page, "mosh_settings", "MOSH Options")
+
         sftp_page = self._build_sftp_page(config)
         self.stack.add_titled(sftp_page, "sftp_settings", "SFTP Options")
 
@@ -375,6 +378,24 @@ class AppConfigDialog(Adw.Window):
         add_button.set_halign(Gtk.Align.CENTER)
         add_button_box.append(add_button)
         options_group.add(add_button_box)
+
+        return page
+
+    def _build_mosh_page(self, config: _app_config.AppConfig):
+        page = Adw.PreferencesPage()
+
+        mosh_group = Adw.PreferencesGroup(title="Default MOSH Flags")
+        page.add(mosh_group)
+
+        self.mosh_local_echo = Adw.ComboRow(title="Local Echo (--predict)", model=Gtk.StringList.new(["adaptive", "always", "never", "experimental"]))
+
+        options = ["adaptive", "always", "never", "experimental"]
+        if config.mosh_local_echo in options:
+            self.mosh_local_echo.set_selected(options.index(config.mosh_local_echo))
+        else:
+            self.mosh_local_echo.set_selected(0)
+
+        mosh_group.add(self.mosh_local_echo)
 
         return page
 
@@ -780,6 +801,7 @@ class AppConfigDialog(Adw.Window):
             ssh_force_pty=self.ssh_force_pty.get_active(),
             ssh_unique_sock_proxy=self.ssh_unique_sock_proxy.get_active(),
             ssh_additional_options=[opt for opt in ssh_additional_options if opt],
+            mosh_local_echo=self.mosh_local_echo.get_selected_item().get_string(),
             sftp_forward_agent=self.sftp_forward_agent.get_active(),
             sftp_compression=self.sftp_compression.get_active(),
             sftp_verbose=self.sftp_verbose.get_active(),
