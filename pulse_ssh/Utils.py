@@ -41,7 +41,6 @@ substitute_keys = [
     "password",
     "identity_file",
     "key_passphrase",
-    "orchestrator_script",
     "proxy_port"
 ]
 
@@ -286,8 +285,8 @@ def build_ssh_command(app_config: _app_config.AppConfig, connection: _connection
     if connection.identity_file:
         ssh_cmd_parts += ['-i', connection.identity_file]
 
-    if connection.proxy_jump and connection.proxy_jump in _globals.connections:
-        jump_conn = _globals.connections[connection.proxy_jump]
+    if connection.ssh_proxy_jump and connection.ssh_proxy_jump in _globals.connections:
+        jump_conn = _globals.connections[connection.ssh_proxy_jump]
         jump_host_string = jump_conn.host if not jump_conn.user else f"{jump_conn.user}@{jump_conn.host}"
         ssh_cmd_parts += ['-J', jump_host_string]
 
@@ -320,43 +319,43 @@ def build_ssh_command(app_config: _app_config.AppConfig, connection: _connection
         add_key_cmd.append(ssh_add_cmd)
 
     quoted_ssh_command = " ".join([shlex.quote(part) for part in ssh_cmd_parts])
-    all_prepend_cmds = add_key_cmd + connection.prepend_cmds
+    all_prepend_cmds = add_key_cmd + connection.ssh_prepend_cmds
     substituted_prepend_cmds = [substitute_variables(cmd, connection, proxy_port) for cmd in all_prepend_cmds]
     final_cmd = " && ".join(substituted_prepend_cmds + [quoted_ssh_command])
 
     return final_cmd, proxy_port
 
 def build_sftp_command(app_config: _app_config.AppConfig, connection: _connection.Connection) -> str:
-    ssh_base_cmd = app_config.sftp_path
+    sftp_base_cmd = app_config.sftp_path
     if connection.use_sudo:
-        ssh_base_cmd = f'{app_config.sudo_path} {ssh_base_cmd}'
+        sftp_base_cmd = f'{app_config.sudo_path} {sftp_base_cmd}'
 
     if connection.use_sshpass and connection.password:
-        ssh_base_cmd = f"{app_config.sshpass_path} -p {shlex.quote(connection.password)} {ssh_base_cmd}"
+        sftp_base_cmd = f"{app_config.sshpass_path} -p {shlex.quote(connection.password)} {sftp_base_cmd}"
 
-    ssh_cmd_parts = shlex.split(ssh_base_cmd) + ['-P', str(connection.port)]
+    sftp_cmd_parts = shlex.split(sftp_base_cmd) + ['-P', str(connection.port)]
     if connection.identity_file:
-        ssh_cmd_parts += ['-i', connection.identity_file]
+        sftp_cmd_parts += ['-i', connection.identity_file]
 
-    if connection.proxy_jump and connection.proxy_jump in _globals.connections:
-        jump_conn = _globals.connections[connection.proxy_jump]
+    if connection.ssh_proxy_jump and connection.ssh_proxy_jump in _globals.connections:
+        jump_conn = _globals.connections[connection.ssh_proxy_jump]
         jump_host_string = jump_conn.host if not jump_conn.user else f"{jump_conn.user}@{jump_conn.host}"
-        ssh_cmd_parts +=  ['-J', jump_host_string]
+        sftp_cmd_parts +=  ['-J', jump_host_string]
 
-    if app_config.ssh_forward_agent or connection.ssh_forward_agent:
-        ssh_cmd_parts += ['-A']
-    if app_config.ssh_compression or connection.ssh_compression:
-        ssh_cmd_parts += ['-C']
-    if app_config.ssh_verbose or connection.ssh_verbose:
-        ssh_cmd_parts += ['-v']
+    if app_config.sftp_forward_agent or connection.sftp_forward_agent:
+        sftp_cmd_parts += ['-A']
+    if app_config.sftp_compression or connection.sftp_compression:
+        sftp_cmd_parts += ['-C']
+    if app_config.sftp_verbose or connection.sftp_verbose:
+        sftp_cmd_parts += ['-v']
 
-    combined_options = list(dict.fromkeys(app_config.ssh_additional_options + connection.ssh_additional_options))
+    combined_options = list(dict.fromkeys(app_config.sftp_additional_options + connection.sftp_additional_options))
     for option in combined_options:
         substituted_option = substitute_variables(option, connection)
-        ssh_cmd_parts += shlex.split(substituted_option)
+        sftp_cmd_parts += shlex.split(substituted_option)
 
-    ssh_cmd_parts += [connection.host if not connection.user else f"{connection.user}@{connection.host}"]
+    sftp_cmd_parts += [connection.host if not connection.user else f"{connection.user}@{connection.host}"]
 
-    quoted_ssh_command = " ".join([shlex.quote(part) for part in ssh_cmd_parts])
+    quoted_sftp_command = " ".join([shlex.quote(part) for part in sftp_cmd_parts])
 
-    return quoted_ssh_command
+    return quoted_sftp_command

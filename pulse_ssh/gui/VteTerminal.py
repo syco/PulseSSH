@@ -42,9 +42,9 @@ class VteTerminal(Vte.Terminal):
         self.set_margin_start(1)
         self.set_margin_end(1)
 
-        self.subbed_orchestrator_script_path = ""
+        self.subbed_ssh_orchestrator_script_path = ""
         self.proxy_port: Optional[int] = None
-        self.orchestrator_process: Optional[Gio.Subprocess] = None
+        self.ssh_orchestrator_process: Optional[Gio.Subprocess] = None
 
         args = None
 
@@ -80,7 +80,7 @@ class VteTerminal(Vte.Terminal):
                     self.app_window.connections_view.select_connection_from_terminal(terminal)
 
                     if connection.type == "ssh":
-                        self.start_orchestrator_script()
+                        self.start_ssh_orchestrator_script()
 
                     return True
                 return False
@@ -304,11 +304,11 @@ class VteTerminal(Vte.Terminal):
 
         menu_model.append_section(None, Gio.Menu())
 
-        remote_cmds_submenu = self.create_remote_cmds_submenu(action_group)
-        menu_model.append_submenu("Remote Commands", remote_cmds_submenu)
+        ssh_remote_cmds_submenu = self.create_ssh_remote_cmds_submenu(action_group)
+        menu_model.append_submenu("Remote Commands", ssh_remote_cmds_submenu)
 
-        local_cmds_submenu = self.create_local_cmds_submenu(action_group)
-        menu_model.append_submenu("Local Commands", local_cmds_submenu)
+        ssh_local_cmds_submenu = self.create_local_cmds_submenu(action_group)
+        menu_model.append_submenu("Local Commands", ssh_local_cmds_submenu)
 
         menu_model.append_section(None, Gio.Menu())
 
@@ -363,7 +363,7 @@ class VteTerminal(Vte.Terminal):
 
     def create_local_cmds_submenu(self, action_group):
         submenu = Gio.Menu()
-        all_local_cmds = {**_globals.app_config.local_cmds, **self.pulse_conn.local_cmds}
+        all_local_cmds = {**_globals.app_config.ssh_local_cmds, **self.pulse_conn.ssh_local_cmds}
 
         if not all_local_cmds:
             no_scripts_item = Gio.MenuItem.new("No scripts defined", None)
@@ -381,9 +381,9 @@ class VteTerminal(Vte.Terminal):
             submenu.append(name, f"term.{action_name}")
         return submenu
 
-    def create_remote_cmds_submenu(self, action_group):
+    def create_ssh_remote_cmds_submenu(self, action_group):
         submenu = Gio.Menu()
-        all_remote_cmds = {**_globals.app_config.remote_cmds, **self.pulse_conn.remote_cmds}
+        all_remote_cmds = {**_globals.app_config.ssh_remote_cmds, **self.pulse_conn.ssh_remote_cmds}
 
         if not all_remote_cmds:
             no_scripts_item = Gio.MenuItem.new("No scripts defined", None)
@@ -540,14 +540,14 @@ class VteTerminal(Vte.Terminal):
         line, _ = self.get_text_range_format(Vte.Format.TEXT, (row - 1 if col == 0 else row), 0, row, col)
         return line.strip()
 
-    def start_orchestrator_script(self):
+    def start_ssh_orchestrator_script(self):
         def on_line_received(data_stream: Gio.DataInputStream, result, is_command: bool = True):
-            if not self.orchestrator_process:
+            if not self.ssh_orchestrator_process:
                 try:
                     data_stream.read_line_finish(result)
                     data_stream.close_async(GLib.PRIORITY_DEFAULT, None, None, None)
                 except GLib.Error as e:
-                    self.add_history_item(self.pulse_conn.uuid, self.subbed_orchestrator_script_path, "", e.message, False)
+                    self.add_history_item(self.pulse_conn.uuid, self.subbed_ssh_orchestrator_script_path, "", e.message, False)
                 return
 
             try:
@@ -576,11 +576,11 @@ class VteTerminal(Vte.Terminal):
                                         output = _utils.substitute_variables(variable, self.pulse_conn, self.proxy_port)
 
                                 if output:
-                                    self.orchestrator_stdin.write(f"{output}\n".encode('utf-8'), None)
-                                    self.orchestrator_stdin.flush(None)
+                                    self.ssh_orchestrator_stdin.write(f"{output}\n".encode('utf-8'), None)
+                                    self.ssh_orchestrator_stdin.flush(None)
 
                             except json.JSONDecodeError:
-                                message = f"Orchestrator script sent invalid JSON: {command_str}"
+                                message = f"SSH orchestrator script sent invalid JSON: {command_str}"
                                 self.add_history_item(self.pulse_conn.uuid, command_str, "", message, False)
                         else:
                             message = f"\r\n{_utils.color_ired} --- {command_str}{_utils.color_reset}\r\n"
@@ -590,45 +590,45 @@ class VteTerminal(Vte.Terminal):
                 else:
                     data_stream.close_async(GLib.PRIORITY_DEFAULT, None, None, None)
             except GLib.Error as e:
-                self.add_history_item(self.pulse_conn.uuid, self.subbed_orchestrator_script_path, "", e.message, False)
+                self.add_history_item(self.pulse_conn.uuid, self.subbed_ssh_orchestrator_script_path, "", e.message, False)
 
-        def on_orchestrator_exited(process, result):
+        def on_ssh_orchestrator_exited(process, result):
             try:
                 success = process.wait_finish(result)
                 exit_status = process.get_exit_status()
                 message = f"Orchestrator script exited with status {exit_status}"
-                self.add_history_item(self.pulse_conn.uuid, self.subbed_orchestrator_script_path, message, "", success)
+                self.add_history_item(self.pulse_conn.uuid, self.subbed_ssh_orchestrator_script_path, message, "", success)
             except GLib.Error as e:
-                self.add_history_item(self.pulse_conn.uuid, self.subbed_orchestrator_script_path, "", e.message, False)
+                self.add_history_item(self.pulse_conn.uuid, self.subbed_ssh_orchestrator_script_path, "", e.message, False)
             finally:
-                self.orchestrator_process = None
+                self.ssh_orchestrator_process = None
 
 
-        if self.pulse_conn and self.pulse_conn.orchestrator_script:
-            script_path = os.path.expanduser(self.pulse_conn.orchestrator_script)
+        if self.pulse_conn and self.pulse_conn.ssh_orchestrator_script:
+            script_path = os.path.expanduser(self.pulse_conn.ssh_orchestrator_script)
             if not os.path.exists(script_path):
                 message = f"Orchestrator script '{script_path}' not found"
                 self.add_history_item(self.pulse_conn.uuid, script_path, "", message, False)
                 return
 
-            self.subbed_orchestrator_script_path = _utils.substitute_variables(script_path, self.pulse_conn, self.proxy_port)
+            self.subbed_ssh_orchestrator_script_path = _utils.substitute_variables(script_path, self.pulse_conn, self.proxy_port)
 
             try:
-                self.orchestrator_process = Gio.Subprocess.new(
-                    [_globals.app_config.shell_program, '-c', self.subbed_orchestrator_script_path],
+                self.ssh_orchestrator_process = Gio.Subprocess.new(
+                    [_globals.app_config.shell_program, '-c', self.subbed_ssh_orchestrator_script_path],
                     Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
                 )
-                if self.orchestrator_process:
-                    self.orchestrator_stdin = self.orchestrator_process.get_stdin_pipe()
-                    orchestrator_stdout = self.orchestrator_process.get_stdout_pipe()
-                    if orchestrator_stdout:
-                        stdout_stream = Gio.DataInputStream.new(orchestrator_stdout)
+                if self.ssh_orchestrator_process:
+                    self.ssh_orchestrator_stdin = self.ssh_orchestrator_process.get_stdin_pipe()
+                    ssh_orchestrator_stdout = self.ssh_orchestrator_process.get_stdout_pipe()
+                    if ssh_orchestrator_stdout:
+                        stdout_stream = Gio.DataInputStream.new(ssh_orchestrator_stdout)
                         stdout_stream.read_line_async(GLib.PRIORITY_DEFAULT, None, on_line_received, True)
-                    orchestrator_stderr = self.orchestrator_process.get_stderr_pipe()
-                    if orchestrator_stderr:
-                        stderr_stream = Gio.DataInputStream.new(orchestrator_stderr)
+                    ssh_orchestrator_stderr = self.ssh_orchestrator_process.get_stderr_pipe()
+                    if ssh_orchestrator_stderr:
+                        stderr_stream = Gio.DataInputStream.new(ssh_orchestrator_stderr)
                         stderr_stream.read_line_async(GLib.PRIORITY_DEFAULT, None, on_line_received, False)
 
-                    self.orchestrator_process.wait_async(None, on_orchestrator_exited)
+                    self.ssh_orchestrator_process.wait_async(None, on_ssh_orchestrator_exited)
             except GLib.Error as e:
-                self.add_history_item(self.pulse_conn.uuid, self.subbed_orchestrator_script_path, "", e.message, False)
+                self.add_history_item(self.pulse_conn.uuid, self.subbed_ssh_orchestrator_script_path, "", e.message, False)
