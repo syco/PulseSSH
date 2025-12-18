@@ -54,6 +54,7 @@ PulseSSH is a modern SSH terminal manager designed for productivity and ease of 
 - **Collapsible Sidebar**: Maximize your terminal workspace with a collapsible sidebar.
 - **Intuitive Dialogs**: Easily manage connections, clusters, and settings through clean and organized dialogs.
 - **SFTP Integration**: Quickly open an SFTP session for the active terminal to transfer files.
+- **FTP Integration**: Quickly open an FTP session for the active terminal to transfer files.
 - **Command Palette**: Access commands and actions quickly with a searchable command palette.
 
 - **Cross-Platform**

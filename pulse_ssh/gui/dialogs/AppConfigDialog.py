@@ -145,6 +145,9 @@ class AppConfigDialog(Adw.Window):
         sftp_page = self._build_sftp_page(config)
         self.stack.add_titled(sftp_page, "sftp_settings", "SFTP Options")
 
+        ftp_page = self._build_ftp_page(config)
+        self.stack.add_titled(ftp_page, "ftp_settings", "FTP Options")
+
         binaries_page = self._build_binaries_page(config)
         self.stack.add_titled(binaries_page, "binaries", "Binaries")
 
@@ -411,6 +414,26 @@ class AppConfigDialog(Adw.Window):
 
         return page
 
+    def _build_ftp_page(self, config: _app_config.AppConfig):
+        page = Adw.PreferencesPage()
+
+        ftp_group = Adw.PreferencesGroup(title="Default FTP Flags")
+        page.add(ftp_group)
+
+        self.ftp_active = Adw.SwitchRow(title="Enable Active Mode (-A)", active=config.ftp_active)
+        ftp_group.add(self.ftp_active)
+
+        self.ftp_passive = Adw.SwitchRow(title="Enable Passive Mode (-P)", active=config.ftp_passive)
+        ftp_group.add(self.ftp_passive)
+
+        self.ftp_trace = Adw.SwitchRow(title="Enable Trace (-t)", active=config.ftp_trace)
+        ftp_group.add(self.ftp_trace)
+
+        self.ftp_verbose = Adw.SwitchRow(title="Enable Verbose (-v)", active=config.ftp_verbose)
+        ftp_group.add(self.ftp_verbose)
+
+        return page
+
     def _build_binaries_page(self, config: _app_config.AppConfig):
         page_grid = Gtk.Grid(margin_start=10, margin_end=10, margin_top=10, margin_bottom=10, row_spacing=6, column_spacing=6)
 
@@ -421,6 +444,10 @@ class AppConfigDialog(Adw.Window):
         self.sftp_path_entry = Gtk.Entry(text=config.sftp_path, activates_default=True)
         page_grid.attach(Gtk.Label(label="SFTP Path", xalign=0), 0, 1, 1, 1)
         page_grid.attach(self.sftp_path_entry, 1, 1, 1, 1)
+
+        self.ftp_path_entry = Gtk.Entry(text=config.ftp_path, activates_default=True)
+        page_grid.attach(Gtk.Label(label="FTP Path", xalign=0), 0, 1, 1, 1)
+        page_grid.attach(self.ftp_path_entry, 1, 1, 1, 1)
 
         self.sshpass_path_entry = Gtk.Entry(text=config.sshpass_path, activates_default=True)
         page_grid.attach(Gtk.Label(label="SSHPASS Path", xalign=0), 0, 3, 1, 1)
@@ -471,7 +498,7 @@ class AppConfigDialog(Adw.Window):
 
         variables = [
             ("{name}", "The name of the connection."),
-            ("{type}", "The type of the connection (e.g. ssh, sftp)."),
+            ("{type}", "The type of the connection (e.g. ssh, sftp, ftp)."),
             ("{folder}", "The folder the connection belongs to."),
             ("{host}", "The hostname or IP address."),
             ("{port}", "The SSH port number."),
@@ -479,7 +506,6 @@ class AppConfigDialog(Adw.Window):
             ("{password}", "The password for the connection (if stored)."),
             ("{identity_file}", "Path to the identity file (if any)."),
             ("{key_passphrase}", "The passphrase for the identity file."),
-            ("{orchestrator_script}", "The orchestrator script for the connection."),
             ("{proxy_port}", "The dynamic SOCKS proxy port (if enabled).")
         ]
 
@@ -749,10 +775,15 @@ class AppConfigDialog(Adw.Window):
             sftp_compression=self.sftp_compression.get_active(),
             sftp_verbose=self.sftp_verbose.get_active(),
             sftp_additional_options=[opt for opt in additional_options if opt],
+            ftp_active=self.ftp_active.get_active(),
+            ftp_passive=self.ftp_passive.get_active(),
+            ftp_trace=self.ftp_trace.get_active(),
+            ftp_verbose=self.ftp_verbose.get_active(),
             ssh_local_cmds=get_cmds_from_list(self.ssh_local_cmds_list),
             ssh_remote_cmds=get_cmds_from_list(self.ssh_remote_cmds_list),
             ssh_path=self.ssh_path_entry.get_text(),
             sftp_path=self.sftp_path_entry.get_text(),
+            ftp_path=self.ftp_path_entry.get_text(),
             sshpass_path=self.sshpass_path_entry.get_text(),
             sudo_path=self.sudo_path_entry.get_text(),
             custom_css=custom_css_text,

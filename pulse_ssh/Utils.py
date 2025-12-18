@@ -359,3 +359,25 @@ def build_sftp_command(app_config: _app_config.AppConfig, connection: _connectio
     quoted_sftp_command = " ".join([shlex.quote(part) for part in sftp_cmd_parts])
 
     return quoted_sftp_command
+
+def build_ftp_command(app_config: _app_config.AppConfig, connection: _connection.Connection) -> str:
+    ftp_base_cmd = app_config.ftp_path
+    if connection.use_sudo:
+        ftp_base_cmd = f'{app_config.sudo_path} {ftp_base_cmd}'
+
+    ftp_cmd_parts = shlex.split(ftp_base_cmd)
+
+    if app_config.ftp_active or connection.ftp_active:
+        ftp_cmd_parts += ['-A']
+    if app_config.ftp_passive or connection.ftp_passive:
+        ftp_cmd_parts += ['-p']
+    if app_config.ftp_trace or connection.ftp_trace:
+        ftp_cmd_parts += ['-t']
+    if app_config.ftp_verbose or connection.ftp_verbose:
+        ftp_cmd_parts += ['-v']
+
+    ftp_cmd_parts += [connection.host, str(connection.port)]
+
+    quoted_ftp_command = " ".join([shlex.quote(part) for part in ftp_cmd_parts])
+
+    return quoted_ftp_command

@@ -37,6 +37,10 @@ class Connection:
     sftp_compression: bool = False
     sftp_verbose: bool = False
     sftp_additional_options: List[str] = field(default_factory=list)
+    ftp_active: bool = False
+    ftp_passive: bool = False
+    ftp_trace: bool = False
+    ftp_verbose: bool = False
     use_sudo: bool = False
     use_sshpass: bool = False
 

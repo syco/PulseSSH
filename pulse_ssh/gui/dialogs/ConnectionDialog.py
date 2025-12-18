@@ -88,8 +88,10 @@ class ConnectionDialog(Adw.Window):
         self.name = Adw.EntryRow(title="Name", text=self.conn.name if self.conn else "")
         general_group.add(self.name)
 
-        self.type_dropdown = Adw.ComboRow(title="Type", model=Gtk.StringList.new(["ssh", "sftp"]))
-        if self.conn and self.conn.type == "sftp":
+        self.type_dropdown = Adw.ComboRow(title="Type", model=Gtk.StringList.new(["ssh", "sftp", "ftp"]))
+        if self.conn and self.conn.type == "ftp":
+            self.type_dropdown.set_selected(2)
+        elif self.conn and self.conn.type == "sftp":
             self.type_dropdown.set_selected(1)
         else:
             self.type_dropdown.set_selected(0)
@@ -170,6 +172,9 @@ class ConnectionDialog(Adw.Window):
         self.sftp_options_page = self._build_sftp_options_page()
         self.stack.add_titled(self.sftp_options_page, "sftp_options", "SFTP Options")
 
+        self.ftp_options_page = self._build_ftp_options_page()
+        self.stack.add_titled(self.ftp_options_page, "ftp_options", "FTP Options")
+
         self._on_type_changed(self.type_dropdown, None)
 
         return split_view
@@ -180,14 +185,14 @@ class ConnectionDialog(Adw.Window):
 
     def _on_type_changed(self, dropdown, _):
         selected_type = dropdown.get_selected_item().get_string()
-        is_ssh = selected_type == "ssh"
 
-        self.stack.get_page(self.ssh_options_page).set_visible(is_ssh)
-        self.stack.get_page(self.ssh_prepend_cmds_list).set_visible(is_ssh)
-        self.stack.get_page(self.ssh_orchestrator_script_page).set_visible(is_ssh)
-        self.stack.get_page(self.ssh_remote_cmds_list).set_visible(is_ssh)
-        self.stack.get_page(self.ssh_local_cmds_list).set_visible(is_ssh)
-        self.stack.get_page(self.sftp_options_page).set_visible(not is_ssh)
+        self.stack.get_page(self.ssh_options_page).set_visible(selected_type == "ssh")
+        self.stack.get_page(self.ssh_prepend_cmds_list).set_visible(selected_type == "ssh")
+        self.stack.get_page(self.ssh_orchestrator_script_page).set_visible(selected_type == "ssh")
+        self.stack.get_page(self.ssh_remote_cmds_list).set_visible(selected_type == "ssh")
+        self.stack.get_page(self.ssh_local_cmds_list).set_visible(selected_type == "ssh")
+        self.stack.get_page(self.sftp_options_page).set_visible(selected_type == "sftp")
+        self.stack.get_page(self.ftp_options_page).set_visible(selected_type == "ftp")
 
     def _create_script_list_page(self, commands):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
@@ -423,6 +428,26 @@ class ConnectionDialog(Adw.Window):
 
         return page
 
+    def _build_ftp_options_page(self):
+        page = Adw.PreferencesPage()
+
+        flags_group = Adw.PreferencesGroup(title="FTP Flags")
+        page.add(flags_group)
+
+        self.ftp_active = Adw.SwitchRow(title="Enable Active Mode (-A)", active=self.conn.ftp_active if self.conn else False)
+        flags_group.add(self.ftp_active)
+
+        self.ftp_passive = Adw.SwitchRow(title="Enable Passive Mode (-p)", active=self.conn.ftp_passive if self.conn else False)
+        flags_group.add(self.ftp_passive)
+
+        self.ftp_trace = Adw.SwitchRow(title="Enable Trace Mode (-T)", active=self.conn.ftp_trace if self.conn else False)
+        flags_group.add(self.ftp_trace)
+
+        self.ftp_verbose = Adw.SwitchRow(title="Enable Verbose Mode (-v)", active=self.conn.ftp_trace if self.conn else False)
+        flags_group.add(self.ftp_verbose)
+
+        return page
+
     def _add_option_entry(self, target_box, text=""):
         entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         entry = Gtk.Entry(text=text, hexpand=True)
@@ -557,6 +582,10 @@ class ConnectionDialog(Adw.Window):
             sftp_compression=self.sftp_compression.get_active(),
             sftp_verbose=self.sftp_verbose.get_active(),
             sftp_additional_options=sftp_additional_options,
+            ftp_active=self.ftp_active.get_active(),
+            ftp_passive=self.ftp_passive.get_active(),
+            ftp_trace=self.ftp_trace.get_active(),
+            ftp_verbose=self.ftp_verbose.get_active(),
             use_sudo=self.use_sudo.get_active(),
             use_sshpass=self.use_sshpass.get_active(),
         )

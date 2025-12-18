@@ -108,6 +108,12 @@ class VteTerminalSSH(_vte_terminal.VteTerminal):
         menu_model.append("Open SFTP", "term.sftp")
 
         menu_model.append_section(None, Gio.Menu())
+        ftp_action = Gio.SimpleAction.new("ftp", None)
+        ftp_action.connect("activate", self.open_ftp_tab)
+        action_group.add_action(ftp_action)
+        menu_model.append("Open FTP", "term.ftp")
+
+        menu_model.append_section(None, Gio.Menu())
 
         ssh_remote_cmds_submenu = self.create_ssh_remote_cmds_submenu(action_group)
         menu_model.append_submenu("Remote Commands", ssh_remote_cmds_submenu)
@@ -237,6 +243,13 @@ class VteTerminalSSH(_vte_terminal.VteTerminal):
         clone.sftp_compression = self.pulse_conn.ssh_compression
         clone.sftp_forward_agent = self.pulse_conn.ssh_forward_agent
         clone.sftp_verbose = self.pulse_conn.ssh_verbose
+
+        _gui_globals.layout_manager.open_connection_tab(clone)
+
+    def open_ftp_tab(self, action, param):
+        clone = self.pulse_conn.get_cloned_connection()
+        clone.type = "ftp"
+        clone.ftp_verbose = self.pulse_conn.ssh_verbose
 
         _gui_globals.layout_manager.open_connection_tab(clone)
 
