@@ -249,6 +249,7 @@ class VteTerminalSSH(_vte_terminal.VteTerminal):
     def open_ftp_tab(self, action, param):
         clone = self.pulse_conn.get_cloned_connection()
         clone.type = "ftp"
+        clone.port = 21
         clone.ftp_verbose = self.pulse_conn.ssh_verbose
 
         _gui_globals.layout_manager.open_connection_tab(clone)

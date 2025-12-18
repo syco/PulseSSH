@@ -117,31 +117,28 @@ class ConnectionDialog(Adw.Window):
         self.user = Adw.EntryRow(title="User", text=self.conn.user if self.conn else "")
         details_group.add(self.user)
 
+        self.password_group = Adw.PreferencesGroup(title="Password Authentication")
+        details_page.add(self.password_group)
+
+        self.password = Adw.PasswordEntryRow(title="Password", text=self.conn.password if self.conn and self.conn.password else "")
+        self.password_group.add(self.password)
+
+        self.identity_group = Adw.PreferencesGroup(title="Identity File Authentication")
+        details_page.add(self.identity_group)
+
         self.identity_file = Gtk.Entry(text=self.conn.identity_file if self.conn else "", hexpand=True)
         browse_button = Gtk.Button(label="Browse…")
         browse_button.connect("clicked", self.on_browse_identity_file)
         identity_row = Adw.ActionRow(title="Identity File")
         identity_row.add_suffix(self.identity_file)
         identity_row.add_suffix(browse_button)
-        details_group.add(identity_row)
-
-        behavior_page = Adw.PreferencesPage()
-        self.stack.add_titled(behavior_page, "behavior", "Behavior")
-
-        behavior_group = Adw.PreferencesGroup()
-        behavior_page.add(behavior_group)
+        self.identity_group.add(identity_row)
 
         self.key_passphrase = Adw.PasswordEntryRow(title="Key Passphrase", text=self.conn.key_passphrase if self.conn and self.conn.key_passphrase else "")
+        self.identity_group.add(self.key_passphrase)
 
-        self.use_sudo = Adw.SwitchRow(
-            title="Execute with sudo",
-            subtitle="Prepend 'sudo' to the SSH command",
-            active=self.conn.use_sudo if self.conn else False
-        )
-        behavior_group.add(self.use_sudo)
-
-        self.password = Adw.PasswordEntryRow(title="Password", text=self.conn.password if self.conn and self.conn.password else "")
-        behavior_group.add(self.password)
+        execution_group = Adw.PreferencesGroup(title="Execution Options")
+        details_page.add(execution_group)
 
         self.use_sshpass = Adw.SwitchRow(
             title="Use sshpass for password",
@@ -149,7 +146,10 @@ class ConnectionDialog(Adw.Window):
             active=self.conn.use_sshpass if self.conn else False
         )
         self.use_sshpass.connect("notify::active", self._on_use_sshpass_toggled)
-        behavior_group.add(self.use_sshpass)
+        execution_group.add(self.use_sshpass)
+
+        self.use_sudo = Adw.SwitchRow(title="Execute with sudo", subtitle="Prepend 'sudo' to the SSH command", active=self.conn.use_sudo if self.conn else False)
+        execution_group.add(self.use_sudo)
 
         is_sshpass_active = self.use_sshpass.get_active()
         self.password.set_sensitive(is_sshpass_active)
@@ -186,11 +186,22 @@ class ConnectionDialog(Adw.Window):
     def _on_type_changed(self, dropdown, _):
         selected_type = dropdown.get_selected_item().get_string()
 
+        if selected_type == "ssh":
+            self.port.set_value(22)
+        elif selected_type == "sftp":
+            self.port.set_value(22)
+        elif selected_type == "ftp":
+            self.port.set_value(21)
+
         self.stack.get_page(self.ssh_options_page).set_visible(selected_type == "ssh")
         self.stack.get_page(self.ssh_prepend_cmds_list).set_visible(selected_type == "ssh")
         self.stack.get_page(self.ssh_orchestrator_script_page).set_visible(selected_type == "ssh")
         self.stack.get_page(self.ssh_remote_cmds_list).set_visible(selected_type == "ssh")
         self.stack.get_page(self.ssh_local_cmds_list).set_visible(selected_type == "ssh")
+        self.user.set_visible(selected_type != "ftp")
+        self.password_group.set_visible(selected_type != "ftp")
+        self.identity_group.set_visible(selected_type != "ftp")
+        self.use_sshpass.set_visible(selected_type != "ftp")
         self.stack.get_page(self.sftp_options_page).set_visible(selected_type == "sftp")
         self.stack.get_page(self.ftp_options_page).set_visible(selected_type == "ftp")
 
