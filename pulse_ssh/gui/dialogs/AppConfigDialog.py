@@ -196,6 +196,9 @@ class AppConfigDialog(Adw.Window):
         self.sidebar_on_right = Adw.SwitchRow(title="Show Sidebar on the Right", active=config.sidebar_on_right)
         appearance_group.add(self.sidebar_on_right)
 
+        self.use_adw_window = Adw.SwitchRow(title="Use Adwaita Window", subtitle="Requires restart", active=getattr(config, 'use_adw_window', True))
+        appearance_group.add(self.use_adw_window)
+
     def _build_custom_css_page(self, config: _app_config.AppConfig):
         page = Adw.PreferencesPage()
         self.stack.add_titled(page, "custom_css", "Custom CSS")
@@ -656,6 +659,7 @@ class AppConfigDialog(Adw.Window):
             child = child.get_next_sibling()
 
         return _app_config.AppConfig(
+            use_adw_window=self.use_adw_window.get_active(),
             font_family=font_desc.get_family(),
             font_size=int(font_size),
             theme=self.theme.get_selected_item().name,

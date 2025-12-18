@@ -8,6 +8,7 @@ from typing import Optional
 
 @dataclass
 class AppConfig:
+    use_adw_window: bool = False
     font_family: str = "Monospace"
     font_size: int = 12
     theme: str = "WhiteOnBlack"

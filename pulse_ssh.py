@@ -28,7 +28,6 @@ def run_gtk_app(args):
         from gi.repository import Adw  # type: ignore
         from gi.repository import GLib  # type: ignore
         import pulse_ssh.gui.Globals as _gui_globals
-        import pulse_ssh.gui.MainWindow as _main_window
         import signal
 
         class PulseSSHApp(Adw.Application):
@@ -66,6 +65,8 @@ def run_gtk_app(args):
             def on_activate(self, app):
                 _globals.app_config, _globals.connections, _globals.clusters = _utils.load_app_config(_globals.config_dir)
                 _gui_globals.cache_config = _utils.load_cache_config(_globals.config_dir)
+
+                import pulse_ssh.gui.MainWindow as _main_window
 
                 self.win = _main_window.MainWindow(self)
                 self.win.present()
