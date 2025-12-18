@@ -27,15 +27,11 @@ class ConnectionsView():
         self.app_window = app_window
 
     def setup_list_item(self, factory, list_item):
-        icon = Gtk.Image()
         label = Gtk.Label(xalign=0)
-
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        box.append(icon)
-        box.append(label)
+        label.set_use_markup(True)
 
         expander = Gtk.TreeExpander()
-        expander.set_child(box)
+        expander.set_child(label)
         list_item.set_child(expander)
 
         click_gesture = Gtk.GestureClick()
@@ -54,13 +50,14 @@ class ConnectionsView():
     def bind_list_item(self, factory, list_item):
         expander = list_item.get_child()
         tree_row = list_item.get_item()
-        node = tree_row.get_item()
+        item = tree_row.get_item()
 
-        icon = expander.get_child().get_first_child()
-        label = icon.get_next_sibling()
+        label = expander.get_child()
 
-        icon.set_from_icon_name(node.icon_name)
-        label.set_text(node.name)
+        if item.type:
+            label.set_markup(f'<span font_desc="Monospace" weight="bold">{item.type.upper()}://</span>{item.name}')
+        else:
+            label.set_text(item.name)
         expander.set_list_row(tree_row)
 
         drag_source = Gtk.DragSource()
@@ -154,11 +151,11 @@ class ConnectionsView():
             for part in conn.folder.split('/'):
                 folder_item, folder_index = self.find_tree_entry(store, part, True)
                 if not folder_item:
-                    folder_item = _connection_list_item.ConnectionListItem(part, store, None)
+                    folder_item = _connection_list_item.ConnectionListItem(part, store, "", None)
                     store.append(folder_item)
                 store = folder_item.children_store
 
-        listItem = _connection_list_item.ConnectionListItem(conn.name, store, conn.uuid)
+        listItem = _connection_list_item.ConnectionListItem(conn.name, store, conn.type, conn.uuid)
         if store is not None:
             store.append(listItem)
 
