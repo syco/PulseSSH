@@ -37,7 +37,7 @@ class ClustersView():
     def bind_list_item(self, factory, list_item):
         label = list_item.get_child()
         item = list_item.get_item()
-        label.set_markup(f'<span font_desc="Monospace" weight="bold">▶</span> {item.name}')
+        label.set_markup(f'<span font_desc="Monospace" weight="bold">»</span> {item.name}')
 
     def getAdwToolbarView(self) -> Adw.ToolbarView:
         self.root_store = Gio.ListStore(item_type=_cluster_list_item.ClusterListItem)
