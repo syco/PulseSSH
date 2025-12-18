@@ -34,10 +34,20 @@ class AppConfig:
     ssh_force_pty: bool = False
     ssh_unique_sock_proxy: bool = False
     ssh_additional_options: List[str] = field(default_factory=list)
-    local_cmds: Dict[str, str] = field(default_factory=dict)
-    remote_cmds: Dict[str, str] = field(default_factory=dict)
-    ssh_path: str = "/usr/bin/ssh"
-    sftp_path: str = "/usr/bin/sftp"
-    scp_path: str = "/usr/bin/scp"
-    sshpass_path: str = "/usr/bin/sshpass"
-    sudo_path: str = "/usr/bin/sudo"
+    ssh_remote_cmds: Dict[str, str] = field(default_factory=dict)
+    ssh_local_cmds: Dict[str, str] = field(default_factory=dict)
+    mosh_local_echo: str = "adaptive"
+    sftp_forward_agent: bool = False
+    sftp_compression: bool = False
+    sftp_verbose: bool = False
+    sftp_additional_options: List[str] = field(default_factory=list)
+    ftp_active: bool = False
+    ftp_passive: bool = False
+    ftp_trace: bool = False
+    ftp_verbose: bool = False
+    ssh_path: str = "ssh"
+    mosh_path: str = "mosh"
+    sftp_path: str = "sftp"
+    ftp_path: str = "ftp"
+    sshpass_path: str = "sshpass"
+    sudo_path: str = "sudo"

@@ -41,7 +41,6 @@ substitute_keys = [
     "password",
     "identity_file",
     "key_passphrase",
-    "orchestrator_script",
     "proxy_port"
 ]
 
@@ -286,8 +285,8 @@ def build_ssh_command(app_config: _app_config.AppConfig, connection: _connection
     if connection.identity_file:
         ssh_cmd_parts += ['-i', connection.identity_file]
 
-    if connection.proxy_jump and connection.proxy_jump in _globals.connections:
-        jump_conn = _globals.connections[connection.proxy_jump]
+    if connection.ssh_proxy_jump and connection.ssh_proxy_jump in _globals.connections:
+        jump_conn = _globals.connections[connection.ssh_proxy_jump]
         jump_host_string = jump_conn.host if not jump_conn.user else f"{jump_conn.user}@{jump_conn.host}"
         ssh_cmd_parts += ['-J', jump_host_string]
 
@@ -320,43 +319,122 @@ def build_ssh_command(app_config: _app_config.AppConfig, connection: _connection
         add_key_cmd.append(ssh_add_cmd)
 
     quoted_ssh_command = " ".join([shlex.quote(part) for part in ssh_cmd_parts])
-    all_prepend_cmds = add_key_cmd + connection.prepend_cmds
+    all_prepend_cmds = add_key_cmd + connection.ssh_prepend_cmds
     substituted_prepend_cmds = [substitute_variables(cmd, connection, proxy_port) for cmd in all_prepend_cmds]
     final_cmd = " && ".join(substituted_prepend_cmds + [quoted_ssh_command])
 
     return final_cmd, proxy_port
 
-def build_sftp_command(app_config: _app_config.AppConfig, connection: _connection.Connection) -> str:
-    ssh_base_cmd = app_config.sftp_path
+def build_mosh_command(app_config: _app_config.AppConfig, connection: _connection.Connection) -> tuple[str, Optional[int]]:
+    ssh_base_cmd = app_config.ssh_path
     if connection.use_sudo:
         ssh_base_cmd = f'{app_config.sudo_path} {ssh_base_cmd}'
 
     if connection.use_sshpass and connection.password:
         ssh_base_cmd = f"{app_config.sshpass_path} -p {shlex.quote(connection.password)} {ssh_base_cmd}"
 
-    ssh_cmd_parts = shlex.split(ssh_base_cmd) + ['-P', str(connection.port)]
-    if connection.identity_file:
-        ssh_cmd_parts += ['-i', connection.identity_file]
+    ssh_base_cmd += f" -p {str(connection.port)}"
 
-    if connection.proxy_jump and connection.proxy_jump in _globals.connections:
-        jump_conn = _globals.connections[connection.proxy_jump]
+    if connection.identity_file:
+        ssh_base_cmd += f" -i {connection.identity_file}"
+
+    if connection.ssh_proxy_jump and connection.ssh_proxy_jump in _globals.connections:
+        jump_conn = _globals.connections[connection.ssh_proxy_jump]
         jump_host_string = jump_conn.host if not jump_conn.user else f"{jump_conn.user}@{jump_conn.host}"
-        ssh_cmd_parts +=  ['-J', jump_host_string]
+        ssh_base_cmd += f" -J {jump_host_string}"
 
     if app_config.ssh_forward_agent or connection.ssh_forward_agent:
-        ssh_cmd_parts += ['-A']
+        ssh_base_cmd += f" -A"
     if app_config.ssh_compression or connection.ssh_compression:
-        ssh_cmd_parts += ['-C']
+        ssh_base_cmd += f" -C"
+    if app_config.ssh_x11_forwarding or connection.ssh_x11_forwarding:
+        ssh_base_cmd += f" -X"
     if app_config.ssh_verbose or connection.ssh_verbose:
-        ssh_cmd_parts += ['-v']
+        ssh_base_cmd += f" -v"
+    if app_config.ssh_force_pty or connection.ssh_force_pty:
+        ssh_base_cmd += f" -t"
+
+    proxy_port = None
+    if app_config.ssh_unique_sock_proxy or connection.ssh_unique_sock_proxy:
+        proxy_port = get_free_port()
+        ssh_base_cmd += f" -D localhost:{proxy_port}"
 
     combined_options = list(dict.fromkeys(app_config.ssh_additional_options + connection.ssh_additional_options))
     for option in combined_options:
+        substituted_option = substitute_variables(option, connection, proxy_port)
+        ssh_base_cmd += f" {substituted_option}"
+
+    add_key_cmd = []
+    if connection.identity_file and connection.key_passphrase:
+        ssh_add_cmd = f"{app_config.sshpass_path} -p {shlex.quote(connection.key_passphrase)} ssh-add {shlex.quote(connection.identity_file)}"
+        add_key_cmd.append(ssh_add_cmd)
+
+    mosh_cmd_parts = shlex.split(app_config.mosh_path) + ['--ssh', ssh_base_cmd]
+    if connection.mosh_local_echo:
+        mosh_cmd_parts += [f'--predict={connection.mosh_local_echo}']
+
+    mosh_cmd_parts += [connection.host if not connection.user else f"{connection.user}@{connection.host}"]
+
+    quoted_mosh_command = " ".join([shlex.quote(part) for part in mosh_cmd_parts])
+    all_prepend_cmds = add_key_cmd + connection.ssh_prepend_cmds
+    substituted_prepend_cmds = [substitute_variables(cmd, connection, proxy_port) for cmd in all_prepend_cmds]
+    final_cmd = " && ".join(substituted_prepend_cmds + [quoted_mosh_command])
+
+    return final_cmd, proxy_port
+
+def build_sftp_command(app_config: _app_config.AppConfig, connection: _connection.Connection) -> str:
+    sftp_base_cmd = app_config.sftp_path
+    if connection.use_sudo:
+        sftp_base_cmd = f'{app_config.sudo_path} {sftp_base_cmd}'
+
+    if connection.use_sshpass and connection.password:
+        sftp_base_cmd = f"{app_config.sshpass_path} -p {shlex.quote(connection.password)} {sftp_base_cmd}"
+
+    sftp_cmd_parts = shlex.split(sftp_base_cmd) + ['-P', str(connection.port)]
+    if connection.identity_file:
+        sftp_cmd_parts += ['-i', connection.identity_file]
+
+    if connection.ssh_proxy_jump and connection.ssh_proxy_jump in _globals.connections:
+        jump_conn = _globals.connections[connection.ssh_proxy_jump]
+        jump_host_string = jump_conn.host if not jump_conn.user else f"{jump_conn.user}@{jump_conn.host}"
+        sftp_cmd_parts +=  ['-J', jump_host_string]
+
+    if app_config.sftp_forward_agent or connection.sftp_forward_agent:
+        sftp_cmd_parts += ['-A']
+    if app_config.sftp_compression or connection.sftp_compression:
+        sftp_cmd_parts += ['-C']
+    if app_config.sftp_verbose or connection.sftp_verbose:
+        sftp_cmd_parts += ['-v']
+
+    combined_options = list(dict.fromkeys(app_config.sftp_additional_options + connection.sftp_additional_options))
+    for option in combined_options:
         substituted_option = substitute_variables(option, connection)
-        ssh_cmd_parts += shlex.split(substituted_option)
+        sftp_cmd_parts += shlex.split(substituted_option)
 
-    ssh_cmd_parts += [connection.host if not connection.user else f"{connection.user}@{connection.host}"]
+    sftp_cmd_parts += [connection.host if not connection.user else f"{connection.user}@{connection.host}"]
 
-    quoted_ssh_command = " ".join([shlex.quote(part) for part in ssh_cmd_parts])
+    quoted_sftp_command = " ".join([shlex.quote(part) for part in sftp_cmd_parts])
 
-    return quoted_ssh_command
+    return quoted_sftp_command
+
+def build_ftp_command(app_config: _app_config.AppConfig, connection: _connection.Connection) -> str:
+    ftp_base_cmd = app_config.ftp_path
+    if connection.use_sudo:
+        ftp_base_cmd = f'{app_config.sudo_path} {ftp_base_cmd}'
+
+    ftp_cmd_parts = shlex.split(ftp_base_cmd)
+
+    if app_config.ftp_active or connection.ftp_active:
+        ftp_cmd_parts += ['-A']
+    if app_config.ftp_passive or connection.ftp_passive:
+        ftp_cmd_parts += ['-p']
+    if app_config.ftp_trace or connection.ftp_trace:
+        ftp_cmd_parts += ['-t']
+    if app_config.ftp_verbose or connection.ftp_verbose:
+        ftp_cmd_parts += ['-v']
+
+    ftp_cmd_parts += [connection.host, str(connection.port)]
+
+    quoted_ftp_command = " ".join([shlex.quote(part) for part in ftp_cmd_parts])
+
+    return quoted_ftp_command

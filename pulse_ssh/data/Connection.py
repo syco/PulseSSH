@@ -20,11 +20,6 @@ class Connection:
     password: Optional[str] = None
     identity_file: Optional[str] = None
     key_passphrase: Optional[str] = None
-    prepend_cmds: List[str] = field(default_factory=list)
-    local_cmds: Dict[str, str] = field(default_factory=dict)
-    remote_cmds: Dict[str, str] = field(default_factory=dict)
-    proxy_jump: Optional[str] = None
-    orchestrator_script: Optional[str] = None
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
     ssh_forward_agent: bool = False
     ssh_compression: bool = False
@@ -32,7 +27,21 @@ class Connection:
     ssh_verbose: bool = False
     ssh_force_pty: bool = False
     ssh_unique_sock_proxy: bool = False
+    ssh_proxy_jump: Optional[str] = None
     ssh_additional_options: List[str] = field(default_factory=list)
+    ssh_prepend_cmds: List[str] = field(default_factory=list)
+    ssh_orchestrator_script: Optional[str] = None
+    ssh_remote_cmds: Dict[str, str] = field(default_factory=dict)
+    ssh_local_cmds: Dict[str, str] = field(default_factory=dict)
+    mosh_local_echo: str = "adaptive"
+    sftp_forward_agent: bool = False
+    sftp_compression: bool = False
+    sftp_verbose: bool = False
+    sftp_additional_options: List[str] = field(default_factory=list)
+    ftp_active: bool = False
+    ftp_passive: bool = False
+    ftp_trace: bool = False
+    ftp_verbose: bool = False
     use_sudo: bool = False
     use_sshpass: bool = False
 

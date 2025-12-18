@@ -88,11 +88,9 @@ class ConnectionDialog(Adw.Window):
         self.name = Adw.EntryRow(title="Name", text=self.conn.name if self.conn else "")
         general_group.add(self.name)
 
-        self.type_dropdown = Adw.ComboRow(title="Type", model=Gtk.StringList.new(["ssh", "sftp"]))
-        if self.conn and self.conn.type == "sftp":
-            self.type_dropdown.set_selected(1)
-        else:
-            self.type_dropdown.set_selected(0)
+        types = ["ssh", "mosh", "sftp", "ftp"]
+        self.type_dropdown = Adw.ComboRow(title="Type", model=Gtk.StringList.new(types))
+        self.type_dropdown.set_selected(types.index("ssh" if self.conn and self.conn.type else "ssh"))
         general_group.add(self.type_dropdown)
         self.type_dropdown.connect("notify::selected-item", self._on_type_changed)
 
@@ -115,55 +113,62 @@ class ConnectionDialog(Adw.Window):
         self.user = Adw.EntryRow(title="User", text=self.conn.user if self.conn else "")
         details_group.add(self.user)
 
+        self.password_group = Adw.PreferencesGroup(title="Password Authentication")
+        details_page.add(self.password_group)
+
+        self.password = Adw.PasswordEntryRow(title="Password", text=self.conn.password if self.conn and self.conn.password else "")
+        self.password_group.add(self.password)
+
+        self.identity_group = Adw.PreferencesGroup(title="Identity File Authentication")
+        details_page.add(self.identity_group)
+
         self.identity_file = Gtk.Entry(text=self.conn.identity_file if self.conn else "", hexpand=True)
         browse_button = Gtk.Button(label="Browse…")
         browse_button.connect("clicked", self.on_browse_identity_file)
         identity_row = Adw.ActionRow(title="Identity File")
         identity_row.add_suffix(self.identity_file)
         identity_row.add_suffix(browse_button)
-        details_group.add(identity_row)
-
-        behavior_page = Adw.PreferencesPage()
-        self.stack.add_titled(behavior_page, "behavior", "Behavior")
-
-        behavior_group = Adw.PreferencesGroup()
-        behavior_page.add(behavior_group)
+        self.identity_group.add(identity_row)
 
         self.key_passphrase = Adw.PasswordEntryRow(title="Key Passphrase", text=self.conn.key_passphrase if self.conn and self.conn.key_passphrase else "")
+        self.identity_group.add(self.key_passphrase)
 
-        self.use_sudo = Adw.SwitchRow(
-            title="Execute with sudo",
-            subtitle="Prepend 'sudo' to the SSH command",
-            active=self.conn.use_sudo if self.conn else False
-        )
-        behavior_group.add(self.use_sudo)
+        execution_group = Adw.PreferencesGroup(title="Execution Options")
+        details_page.add(execution_group)
 
-        self.password = Adw.PasswordEntryRow(title="Password", text=self.conn.password if self.conn and self.conn.password else "")
-        behavior_group.add(self.password)
-
-        self.use_sshpass = Adw.SwitchRow(
-            title="Use sshpass for password",
-            subtitle="Pass the password via sshpass (less secure)",
-            active=self.conn.use_sshpass if self.conn else False
-        )
+        self.use_sshpass = Adw.SwitchRow(title="Use sshpass for password", subtitle="Pass the password via sshpass (less secure)", active=self.conn.use_sshpass if self.conn else False)
         self.use_sshpass.connect("notify::active", self._on_use_sshpass_toggled)
-        behavior_group.add(self.use_sshpass)
+        execution_group.add(self.use_sshpass)
+
+        self.use_sudo = Adw.SwitchRow(title="Execute with sudo", subtitle="Prepend 'sudo' to the SSH command", active=self.conn.use_sudo if self.conn else False)
+        execution_group.add(self.use_sudo)
 
         is_sshpass_active = self.use_sshpass.get_active()
         self.password.set_sensitive(is_sshpass_active)
 
-        self._build_ssh_options_page()
+        self.ssh_options_page = self._build_ssh_options_page()
+        self.stack.add_titled(self.ssh_options_page, "ssh_options", "SSH Options")
 
-        self.prepend_cmds_list = self._create_script_list_page(self.conn.prepend_cmds if self.conn else [])
-        self.stack.add_titled(self.prepend_cmds_list, "prepend_cmds", "Pre-Local")
+        self.ssh_prepend_cmds_list = self._create_script_list_page(self.conn.ssh_prepend_cmds if self.conn else [])
+        self.stack.add_titled(self.ssh_prepend_cmds_list, "ssh_prepend_cmds", "SSH Pre-Local")
 
-        self._build_orchestrator_script_page()
+        self.ssh_orchestrator_script_page = self._build_ssh_orchestrator_script_page()
+        self.stack.add_titled(self.ssh_orchestrator_script_page, "ssh_orchestrator_script", "SSH Orchestrator Script")
 
-        self.local_cmds_list = self._create_cmds_list_page(self.conn.local_cmds if self.conn else {})
-        self.stack.add_titled(self.local_cmds_list, "local_cmds", "Local Commands")
+        self.ssh_remote_cmds_list = self._create_cmds_list_page(self.conn.ssh_remote_cmds if self.conn else {})
+        self.stack.add_titled(self.ssh_remote_cmds_list, "ssh_remote_cmds", "SSH Remote Commands")
 
-        self.remote_cmds_list = self._create_cmds_list_page(self.conn.remote_cmds if self.conn else {})
-        self.stack.add_titled(self.remote_cmds_list, "remote_cmds", "Remote Commands")
+        self.ssh_local_cmds_list = self._create_cmds_list_page(self.conn.ssh_local_cmds if self.conn else {})
+        self.stack.add_titled(self.ssh_local_cmds_list, "ssh_local_cmds", "SSH Local Commands")
+
+        self.mosh_options_page = self._build_mosh_page()
+        self.stack.add_titled(self.mosh_options_page, "mosh_options", "MOSH Options")
+
+        self.sftp_options_page = self._build_sftp_page()
+        self.stack.add_titled(self.sftp_options_page, "sftp_options", "SFTP Options")
+
+        self.ftp_options_page = self._build_ftp_page()
+        self.stack.add_titled(self.ftp_options_page, "ftp_options", "FTP Options")
 
         self._on_type_changed(self.type_dropdown, None)
 
@@ -175,8 +180,25 @@ class ConnectionDialog(Adw.Window):
 
     def _on_type_changed(self, dropdown, _):
         selected_type = dropdown.get_selected_item().get_string()
-        self.ssh_x11_forwarding.set_visible(selected_type == "ssh")
-        self.ssh_force_pty.set_visible(selected_type == "ssh")
+
+        if selected_type == "ftp":
+            self.port.set_value(21)
+        else:
+            self.port.set_value(22)
+
+        self.user.set_visible(selected_type != "ftp")
+        self.password_group.set_visible(selected_type != "ftp")
+        self.identity_group.set_visible(selected_type != "ftp")
+        self.use_sshpass.set_visible(selected_type != "ftp")
+
+        self.stack.get_page(self.ssh_options_page).set_visible(selected_type == "ssh" or selected_type == "mosh")
+        self.stack.get_page(self.ssh_prepend_cmds_list).set_visible(selected_type == "ssh" or selected_type == "mosh")
+        self.stack.get_page(self.ssh_orchestrator_script_page).set_visible(selected_type == "ssh" or selected_type == "mosh")
+        self.stack.get_page(self.ssh_remote_cmds_list).set_visible(selected_type == "ssh" or selected_type == "mosh")
+        self.stack.get_page(self.ssh_local_cmds_list).set_visible(selected_type == "ssh" or selected_type == "mosh")
+        self.stack.get_page(self.mosh_options_page).set_visible(selected_type == "mosh")
+        self.stack.get_page(self.sftp_options_page).set_visible(selected_type == "sftp")
+        self.stack.get_page(self.ftp_options_page).set_visible(selected_type == "ftp")
 
     def _create_script_list_page(self, commands):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
@@ -320,40 +342,40 @@ class ConnectionDialog(Adw.Window):
             if c.type == "ssh":
                 self.proxy_jump_connections[c.uuid] = f"{c.folder}/{c.name}" if c.folder else c.name
 
-        theme_model = Gio.ListStore.new(_string_object.StringObject)
+        ssh_proxy_jump_model = Gio.ListStore.new(_string_object.StringObject)
         for id, name in self.proxy_jump_connections.items():
-            theme_model.append(_string_object.StringObject(id, name))
+            ssh_proxy_jump_model.append(_string_object.StringObject(id, name))
 
-        theme_expression = Gtk.PropertyExpression.new(_string_object.StringObject, None, "name")
+        ssh_proxy_jump_expression = Gtk.PropertyExpression.new(_string_object.StringObject, None, "name")
 
-        theme_filter = Gtk.StringFilter.new(theme_expression)
-        theme_filter.set_ignore_case(True)
-        theme_filter.set_match_mode(Gtk.StringFilterMatchMode.SUBSTRING)
-        filter_model = Gtk.FilterListModel.new(theme_model, theme_filter)
+        ssh_proxy_jump_filter = Gtk.StringFilter.new(ssh_proxy_jump_expression)
+        ssh_proxy_jump_filter.set_ignore_case(True)
+        ssh_proxy_jump_filter.set_match_mode(Gtk.StringFilterMatchMode.SUBSTRING)
+        filter_model = Gtk.FilterListModel.new(ssh_proxy_jump_model, ssh_proxy_jump_filter)
 
-        self.proxy_jump = Gtk.DropDown()
-        self.proxy_jump.set_model(filter_model)
-        self.proxy_jump.set_expression(theme_expression)
-        self.proxy_jump.set_search_match_mode(Gtk.StringFilterMatchMode.SUBSTRING)
-        self.proxy_jump.set_enable_search(True)
+        self.ssh_proxy_jump = Gtk.DropDown()
+        self.ssh_proxy_jump.set_model(filter_model)
+        self.ssh_proxy_jump.set_expression(ssh_proxy_jump_expression)
+        self.ssh_proxy_jump.set_search_match_mode(Gtk.StringFilterMatchMode.SUBSTRING)
+        self.ssh_proxy_jump.set_enable_search(True)
 
         def on_theme_search_changed(dropdown, _):
-            theme_filter.set_search(dropdown.get_search())
+            ssh_proxy_jump_filter.set_search(dropdown.get_search())
 
-        self.proxy_jump.connect("notify::search", on_theme_search_changed)
+        self.ssh_proxy_jump.connect("notify::search", on_theme_search_changed)
 
-        if self.conn and self.conn.proxy_jump:
-            for i in range(theme_model.get_n_items()):
-                item = theme_model.get_item(i)
-                if item.id == self.conn.proxy_jump:
-                    self.proxy_jump.set_selected(i)
+        if self.conn and self.conn.ssh_proxy_jump:
+            for i in range(ssh_proxy_jump_model.get_n_items()):
+                item = ssh_proxy_jump_model.get_item(i)
+                if item.id == self.conn.ssh_proxy_jump:
+                    self.ssh_proxy_jump.set_selected(i)
                     break
         else:
-            self.proxy_jump.set_selected(0)
+            self.ssh_proxy_jump.set_selected(0)
 
-        proxy_jump_row = Adw.ActionRow(title="Jump Host (-J)", activatable_widget=self.proxy_jump)
-        proxy_jump_row.add_suffix(self.proxy_jump)
-        proxy_jump_row.set_activatable_widget(self.proxy_jump)
+        proxy_jump_row = Adw.ActionRow(title="Jump Host (-J)", activatable_widget=self.ssh_proxy_jump)
+        proxy_jump_row.add_suffix(self.ssh_proxy_jump)
+        proxy_jump_row.set_activatable_widget(self.ssh_proxy_jump)
         proxy_jump_group.add(proxy_jump_row)
 
         self.ssh_unique_sock_proxy = Adw.SwitchRow(title="Unique SOCKS Proxy (-D)", subtitle="Creates a SOCKS proxy on a unique local port", active=self.conn.ssh_unique_sock_proxy if self.conn else False)
@@ -362,63 +384,133 @@ class ConnectionDialog(Adw.Window):
         options_group = Adw.PreferencesGroup(title="Additional Options")
         page.add(options_group)
 
-        self.additional_options_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True, min_content_height=100)
-        scrolled_window.set_child(self.additional_options_box)
-        options_group.add(scrolled_window)
+        self.ssh_additional_options_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        options_group.add(self.ssh_additional_options_box)
 
         if self.conn and self.conn.ssh_additional_options:
             for option in self.conn.ssh_additional_options:
-                self._add_option_entry(option)
+                self._add_option_entry(self.ssh_additional_options_box, option)
 
         add_button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, margin_top=6)
         add_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_button.connect("clicked", lambda w: self._add_option_entry())
+        add_button.connect("clicked", lambda w: self._add_option_entry(self.ssh_additional_options_box))
         add_button.set_halign(Gtk.Align.CENTER)
         add_button_box.append(add_button)
         options_group.add(add_button_box)
 
-        self.stack.add_titled(page, "ssh_options", "SSH Options")
+        return page
 
-    def _add_option_entry(self, text=""):
+    def _build_mosh_page(self):
+        page = Adw.PreferencesPage()
+
+        mosh_group = Adw.PreferencesGroup(title="MOSH Flags")
+        page.add(mosh_group)
+
+        self.mosh_local_echo = Adw.ComboRow(title="Local Echo (--predict)", model=Gtk.StringList.new(["adaptive", "always", "never", "experimental"]))
+
+        options = ["adaptive", "always", "never", "experimental"]
+        if self.conn and self.conn.mosh_local_echo in options:
+            self.mosh_local_echo.set_selected(options.index(self.conn.mosh_local_echo))
+        else:
+            self.mosh_local_echo.set_selected(0)
+
+        mosh_group.add(self.mosh_local_echo)
+
+        return page
+
+    def _build_sftp_page(self):
+        page = Adw.PreferencesPage()
+
+        flags_group = Adw.PreferencesGroup(title="SFTP Flags")
+        page.add(flags_group)
+
+        self.sftp_forward_agent = Adw.SwitchRow(title="Enable Agent Forwarding (-A)", active=self.conn.sftp_forward_agent if self.conn else False)
+        flags_group.add(self.sftp_forward_agent)
+
+        self.sftp_compression = Adw.SwitchRow(title="Enable Compression (-C)", active=self.conn.sftp_compression if self.conn else False)
+        flags_group.add(self.sftp_compression)
+
+        self.sftp_verbose = Adw.SwitchRow(title="Enable Verbose Mode (-v)", active=self.conn.sftp_verbose if self.conn else False)
+        flags_group.add(self.sftp_verbose)
+
+        options_group = Adw.PreferencesGroup(title="Additional Options")
+        page.add(options_group)
+
+        self.sftp_additional_options_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        options_group.add(self.sftp_additional_options_box)
+
+        if self.conn and self.conn.sftp_additional_options:
+            for option in self.conn.sftp_additional_options:
+                self._add_option_entry(self.sftp_additional_options_box, option)
+
+        add_button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, margin_top=6)
+        add_button = Gtk.Button(icon_name="list-add-symbolic")
+        add_button.connect("clicked", lambda w: self._add_option_entry(self.sftp_additional_options_box))
+        add_button.set_halign(Gtk.Align.CENTER)
+        add_button_box.append(add_button)
+        options_group.add(add_button_box)
+
+        return page
+
+    def _build_ftp_page(self):
+        page = Adw.PreferencesPage()
+
+        flags_group = Adw.PreferencesGroup(title="FTP Flags")
+        page.add(flags_group)
+
+        self.ftp_active = Adw.SwitchRow(title="Enable Active Mode (-A)", active=self.conn.ftp_active if self.conn else False)
+        flags_group.add(self.ftp_active)
+
+        self.ftp_passive = Adw.SwitchRow(title="Enable Passive Mode (-p)", active=self.conn.ftp_passive if self.conn else False)
+        flags_group.add(self.ftp_passive)
+
+        self.ftp_trace = Adw.SwitchRow(title="Enable Trace Mode (-T)", active=self.conn.ftp_trace if self.conn else False)
+        flags_group.add(self.ftp_trace)
+
+        self.ftp_verbose = Adw.SwitchRow(title="Enable Verbose Mode (-v)", active=self.conn.ftp_trace if self.conn else False)
+        flags_group.add(self.ftp_verbose)
+
+        return page
+
+    def _add_option_entry(self, target_box, text=""):
         entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         entry = Gtk.Entry(text=text, hexpand=True)
         remove_button = Gtk.Button(icon_name="list-remove-symbolic")
-        remove_button.connect("clicked", self._on_remove_option_clicked, entry_box)
+        remove_button.connect("clicked", self._on_remove_option_clicked, entry_box, target_box)
 
         entry_box.append(entry)
         entry_box.append(remove_button)
-        self.additional_options_box.append(entry_box)
+        target_box.append(entry_box)
 
-    def _on_remove_option_clicked(self, button, box_to_remove):
-        self.additional_options_box.remove(box_to_remove)
+    def _on_remove_option_clicked(self, button, box_to_remove, target_box):
+        target_box.remove(box_to_remove)
 
-    def _build_orchestrator_script_page(self):
+    def _build_ssh_orchestrator_script_page(self):
         page = Adw.PreferencesPage()
         group = Adw.PreferencesGroup(title="Orchestrator Script")
         page.add(group)
 
-        self.orchestrator_script_entry = Gtk.Entry(text=self.conn.orchestrator_script if self.conn and self.conn.orchestrator_script else "", hexpand=True)
+        self.ssh_orchestrator_script_entry = Gtk.Entry(text=self.conn.ssh_orchestrator_script if self.conn and self.conn.ssh_orchestrator_script else "", hexpand=True)
         browse_button = Gtk.Button(label="Browse…")
-        browse_button.connect("clicked", self.on_browse_orchestrator_script_file)
+        browse_button.connect("clicked", self.on_browse_ssh_orchestrator_script_file)
 
         script_row = Adw.ActionRow(title="Script File")
-        script_row.add_suffix(self.orchestrator_script_entry)
+        script_row.add_suffix(self.ssh_orchestrator_script_entry)
         script_row.add_suffix(browse_button)
         group.add(script_row)
 
-        self.stack.add_titled(page, "orchestrator_script", "Orchestrator Script")
+        return page
 
-    def on_browse_orchestrator_script_file(self, button):
+    def on_browse_ssh_orchestrator_script_file(self, button):
         file_dialog = Gtk.FileDialog.new()
-        file_dialog.set_title("Select Orchestrator Script File")
-        file_dialog.open(self, None, self.on_orchestrator_script_file_selected)
+        file_dialog.set_title("Select SSH Orchestrator Script File")
+        file_dialog.open(self, None, self.on_ssh_orchestrator_script_file_selected)
 
-    def on_orchestrator_script_file_selected(self, dialog, result):
+    def on_ssh_orchestrator_script_file_selected(self, dialog, result):
         try:
             file = dialog.open_finish(result)
             if file:
-                self.orchestrator_script_entry.set_text(file.get_path())
+                self.ssh_orchestrator_script_entry.set_text(file.get_path())
         except GLib.Error:
             pass
 
@@ -466,25 +558,31 @@ class ConnectionDialog(Adw.Window):
                 idx += 1
             return scripts
 
-        additional_options = []
-        child = self.additional_options_box.get_first_child()
-        while child:
-            entry = child.get_first_child()
-            additional_options.append(entry.get_text())
-            child = child.get_next_sibling()
+        def get_additional_options_from_box(box):
+            options = []
+            if not box:
+                return options
+            child = box.get_first_child()
+            while child:
+                entry = child.get_first_child()
+                options.append(entry.get_text())
+                child = child.get_next_sibling()
+            return [opt for opt in options if opt]
 
-        proxy_jump_uuid = None
-        selected_jump = self.proxy_jump.get_selected_item()
-        if selected_jump:
-            selected_jump_uuid = selected_jump.id
+        ssh_additional_options = get_additional_options_from_box(self.ssh_additional_options_box)
+        sftp_additional_options = get_additional_options_from_box(self.sftp_additional_options_box)
+
+
+        ssh_proxy_jump_uuid = None
+        selected_ssh_jump = self.ssh_proxy_jump.get_selected_item()
+        if selected_ssh_jump:
+            selected_jump_uuid = selected_ssh_jump.id
             if _globals.connections.get(selected_jump_uuid):
-                proxy_jump_uuid = _globals.connections[selected_jump_uuid].uuid
-
-        conn_type = self.type_dropdown.get_selected_item().get_string()
+                ssh_proxy_jump_uuid = _globals.connections[selected_jump_uuid].uuid
 
         new_conn = _connection.Connection(
             name=self.name.get_text(),
-            type=conn_type,
+            type=self.type_dropdown.get_selected_item().get_string(),
             folder=self.folder.get_text().strip().strip('/').replace('//', '/') or "",
             host=self.host.get_text(),
             port=int(self.port.get_value()),
@@ -492,18 +590,27 @@ class ConnectionDialog(Adw.Window):
             password=self.password.get_text() or None if self.use_sshpass.get_active() else None,
             identity_file=self.identity_file.get_text() or None,
             key_passphrase=self.key_passphrase.get_text() or None,
-            prepend_cmds=get_scripts_from_list(self.prepend_cmds_list),
-            local_cmds=get_cmds_from_list(self.local_cmds_list),
-            remote_cmds=get_cmds_from_list(self.remote_cmds_list),
-            proxy_jump=proxy_jump_uuid,
-            orchestrator_script=self.orchestrator_script_entry.get_text() or None,
             ssh_forward_agent=self.ssh_forward_agent.get_active(),
             ssh_compression=self.ssh_compression.get_active(),
-            ssh_x11_forwarding=self.ssh_x11_forwarding.get_active() if conn_type == "ssh" else False,
+            ssh_x11_forwarding=self.ssh_x11_forwarding.get_active(),
             ssh_verbose=self.ssh_verbose.get_active(),
-            ssh_force_pty=self.ssh_force_pty.get_active() if conn_type == "ssh" else False,
+            ssh_force_pty=self.ssh_force_pty.get_active(),
             ssh_unique_sock_proxy=self.ssh_unique_sock_proxy.get_active(),
-            ssh_additional_options=[opt for opt in additional_options if opt],
+            ssh_proxy_jump=ssh_proxy_jump_uuid,
+            ssh_additional_options=ssh_additional_options,
+            ssh_prepend_cmds=get_scripts_from_list(self.ssh_prepend_cmds_list),
+            ssh_orchestrator_script=self.ssh_orchestrator_script_entry.get_text() or None,
+            ssh_remote_cmds=get_cmds_from_list(self.ssh_remote_cmds_list),
+            ssh_local_cmds=get_cmds_from_list(self.ssh_local_cmds_list),
+            mosh_local_echo=self.mosh_local_echo.get_selected_item().get_string(),
+            sftp_forward_agent=self.sftp_forward_agent.get_active(),
+            sftp_compression=self.sftp_compression.get_active(),
+            sftp_verbose=self.sftp_verbose.get_active(),
+            sftp_additional_options=sftp_additional_options,
+            ftp_active=self.ftp_active.get_active(),
+            ftp_passive=self.ftp_passive.get_active(),
+            ftp_trace=self.ftp_trace.get_active(),
+            ftp_verbose=self.ftp_verbose.get_active(),
             use_sudo=self.use_sudo.get_active(),
             use_sshpass=self.use_sshpass.get_active(),
         )

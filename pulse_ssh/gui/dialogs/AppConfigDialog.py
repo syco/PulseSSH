@@ -118,22 +118,55 @@ class AppConfigDialog(Adw.Window):
         split_view.set_sidebar(Adw.NavigationPage.new(sidebar, "Categories"))
         split_view.set_content(Adw.NavigationPage.new(self.stack, "Settings"))
 
-        self._build_appearance_page(config)
-        self._build_custom_css_page(config)
-        self._build_behavior_page(config)
-        self._build_scrolling_page(config)
-        self._build_encryption_page(config)
-        self._build_ssh_page(config)
-        self._build_binaries_page(config)
-        self._build_shortcuts_page()
-        self._build_variables_page()
-        self._build_about_page(about_info)
+        appearance_page = self._build_appearance_page(config)
+        self.stack.add_titled(appearance_page, "appearance", "Appearance")
+
+        custom_css_page = self._build_custom_css_page(config)
+        self.stack.add_titled(custom_css_page, "custom_css", "Custom CSS")
+
+        behavior_page = self._build_behavior_page(config)
+        self.stack.add_titled(behavior_page, "behavior", "Behavior")
+
+        scrolling_page = self._build_scrolling_page(config)
+        self.stack.add_titled(scrolling_page, "scrolling", "Scrolling")
+
+        encryption_page = self._build_encryption_page(config)
+        self.stack.add_titled(encryption_page, "encryption", "Encryption")
+
+        ssh_page = self._build_ssh_page(config)
+        self.stack.add_titled(ssh_page, "ssh_settings", "SSH Options")
+
+        self.ssh_remote_cmds_list = self._build_cmds_list_page(config.ssh_remote_cmds)
+        self.stack.add_titled(self.ssh_remote_cmds_list, "ssh_remote_cmds", "SSH Remote Commands")
+
+        self.ssh_local_cmds_list = self._build_cmds_list_page(config.ssh_local_cmds)
+        self.stack.add_titled(self.ssh_local_cmds_list, "ssh_local_cmds", "SSH Local Commands")
+
+        mosh_page = self._build_mosh_page(config)
+        self.stack.add_titled(mosh_page, "mosh_settings", "MOSH Options")
+
+        sftp_page = self._build_sftp_page(config)
+        self.stack.add_titled(sftp_page, "sftp_settings", "SFTP Options")
+
+        ftp_page = self._build_ftp_page(config)
+        self.stack.add_titled(ftp_page, "ftp_settings", "FTP Options")
+
+        binaries_page = self._build_binaries_page(config)
+        self.stack.add_titled(binaries_page, "binaries", "Binaries")
+
+        shortcuts_page = self._build_shortcuts_page()
+        self.stack.add_titled(shortcuts_page, "shortcuts", "Shortcuts")
+
+        variables_page = self._build_variables_page()
+        self.stack.add_titled(variables_page, "variables", "Variables")
+
+        about_page = self._build_about_page(about_info)
+        self.stack.add_titled(about_page, "about", "About")
 
         return split_view
 
     def _build_appearance_page(self, config: _app_config.AppConfig):
         page = Adw.PreferencesPage()
-        self.stack.add_titled(page, "appearance", "Appearance")
 
         appearance_group = Adw.PreferencesGroup()
         page.add(appearance_group)
@@ -199,9 +232,10 @@ class AppConfigDialog(Adw.Window):
         self.use_adw_window = Adw.SwitchRow(title="Use Adwaita Window", subtitle="Requires restart", active=getattr(config, 'use_adw_window', False))
         appearance_group.add(self.use_adw_window)
 
+        return page
+
     def _build_custom_css_page(self, config: _app_config.AppConfig):
         page = Adw.PreferencesPage()
-        self.stack.add_titled(page, "custom_css", "Custom CSS")
 
         custom_css_group = Adw.PreferencesGroup()
         page.add(custom_css_group)
@@ -226,9 +260,10 @@ class AppConfigDialog(Adw.Window):
         css_scrolled_window.set_child(self.custom_css_view)
         custom_css_group.add(css_scrolled_window)
 
+        return page
+
     def _build_behavior_page(self, config: _app_config.AppConfig):
         page = Adw.PreferencesPage()
-        self.stack.add_titled(page, "behavior", "Behavior")
 
         behavior_group = Adw.PreferencesGroup()
         page.add(behavior_group)
@@ -251,9 +286,10 @@ class AppConfigDialog(Adw.Window):
         self.audible_bell = Adw.SwitchRow(title="Audible Bell", subtitle="Enable the terminal bell sound", active=config.audible_bell)
         behavior_group.add(self.audible_bell)
 
+        return page
+
     def _build_scrolling_page(self, config: _app_config.AppConfig):
         page = Adw.PreferencesPage()
-        self.stack.add_titled(page, "scrolling", "Scrolling")
 
         scrolling_group = Adw.PreferencesGroup()
         page.add(scrolling_group)
@@ -277,9 +313,10 @@ class AppConfigDialog(Adw.Window):
         self.scroll_on_insert = Adw.SwitchRow(title="Scroll on Insert (deprecated)", subtitle="This option may have no effect", active=config.scroll_on_insert)
         scrolling_group.add(self.scroll_on_insert)
 
+        return page
+
     def _build_encryption_page(self, config: _app_config.AppConfig):
         page = Adw.PreferencesPage()
-        self.stack.add_titled(page, "encryption", "Encryption")
 
         encryption_group = Adw.PreferencesGroup()
         page.add(encryption_group)
@@ -297,9 +334,10 @@ class AppConfigDialog(Adw.Window):
 
         self.change_password_row.set_visible(config.encryption_enabled)
 
+        return page
+
     def _build_ssh_page(self, config: _app_config.AppConfig):
         page = Adw.PreferencesPage()
-        self.stack.add_titled(page, "ssh_settings", "SSH Options")
 
         ssh_group = Adw.PreferencesGroup(title="Default SSH Flags")
         page.add(ssh_group)
@@ -325,28 +363,97 @@ class AppConfigDialog(Adw.Window):
         options_group = Adw.PreferencesGroup(title="Additional Options")
         page.add(options_group)
 
-        self.additional_options_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.additional_ssh_options_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True, min_content_height=100)
-        scrolled_window.set_child(self.additional_options_box)
+        scrolled_window.set_child(self.additional_ssh_options_box)
         options_group.add(scrolled_window)
 
         if config.ssh_additional_options:
             for option in config.ssh_additional_options:
-                self._add_option_entry(option)
+                self._add_option_entry(self.additional_ssh_options_box, option)
 
         add_button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, margin_top=6)
         add_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_button.connect("clicked", lambda w: self._add_option_entry())
+        add_button.connect("clicked", lambda w: self._add_option_entry(self.additional_ssh_options_box))
         add_button.set_halign(Gtk.Align.CENTER)
         add_button_box.append(add_button)
         options_group.add(add_button_box)
 
+        return page
 
-        self.local_cmds_list = self._create_cmds_list_page(config.local_cmds)
-        self.stack.add_titled(self.local_cmds_list, "local_cmds", "Local Commands")
+    def _build_mosh_page(self, config: _app_config.AppConfig):
+        page = Adw.PreferencesPage()
 
-        self.remote_cmds_list = self._create_cmds_list_page(config.remote_cmds)
-        self.stack.add_titled(self.remote_cmds_list, "remote_cmds", "Remote Commands")
+        mosh_group = Adw.PreferencesGroup(title="Default MOSH Flags")
+        page.add(mosh_group)
+
+        self.mosh_local_echo = Adw.ComboRow(title="Local Echo (--predict)", model=Gtk.StringList.new(["adaptive", "always", "never", "experimental"]))
+
+        options = ["adaptive", "always", "never", "experimental"]
+        if config.mosh_local_echo in options:
+            self.mosh_local_echo.set_selected(options.index(config.mosh_local_echo))
+        else:
+            self.mosh_local_echo.set_selected(0)
+
+        mosh_group.add(self.mosh_local_echo)
+
+        return page
+
+    def _build_sftp_page(self, config: _app_config.AppConfig):
+        page = Adw.PreferencesPage()
+
+        sftp_group = Adw.PreferencesGroup(title="Default SFTP Flags")
+        page.add(sftp_group)
+
+        self.sftp_forward_agent = Adw.SwitchRow(title="Enable Agent Forwarding (-A)", active=config.sftp_forward_agent)
+        sftp_group.add(self.sftp_forward_agent)
+
+        self.sftp_compression = Adw.SwitchRow(title="Enable Compression (-C)", active=config.sftp_compression)
+        sftp_group.add(self.sftp_compression)
+
+        self.sftp_verbose = Adw.SwitchRow(title="Enable Verbose Mode (-v)", active=config.sftp_verbose)
+        sftp_group.add(self.sftp_verbose)
+
+        options_group = Adw.PreferencesGroup(title="Additional Options")
+        page.add(options_group)
+
+        self.additional_sftp_options_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True, min_content_height=100)
+        scrolled_window.set_child(self.additional_sftp_options_box)
+        options_group.add(scrolled_window)
+
+        if config.sftp_additional_options:
+            for option in config.sftp_additional_options:
+                self._add_option_entry(self.additional_sftp_options_box, option)
+
+        add_button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, margin_top=6)
+        add_button = Gtk.Button(icon_name="list-add-symbolic")
+        add_button.connect("clicked", lambda w: self._add_option_entry(self.additional_sftp_options_box))
+        add_button.set_halign(Gtk.Align.CENTER)
+        add_button_box.append(add_button)
+        options_group.add(add_button_box)
+
+        return page
+
+    def _build_ftp_page(self, config: _app_config.AppConfig):
+        page = Adw.PreferencesPage()
+
+        ftp_group = Adw.PreferencesGroup(title="Default FTP Flags")
+        page.add(ftp_group)
+
+        self.ftp_active = Adw.SwitchRow(title="Enable Active Mode (-A)", active=config.ftp_active)
+        ftp_group.add(self.ftp_active)
+
+        self.ftp_passive = Adw.SwitchRow(title="Enable Passive Mode (-P)", active=config.ftp_passive)
+        ftp_group.add(self.ftp_passive)
+
+        self.ftp_trace = Adw.SwitchRow(title="Enable Trace (-t)", active=config.ftp_trace)
+        ftp_group.add(self.ftp_trace)
+
+        self.ftp_verbose = Adw.SwitchRow(title="Enable Verbose (-v)", active=config.ftp_verbose)
+        ftp_group.add(self.ftp_verbose)
+
+        return page
 
     def _build_binaries_page(self, config: _app_config.AppConfig):
         page_grid = Gtk.Grid(margin_start=10, margin_end=10, margin_top=10, margin_bottom=10, row_spacing=6, column_spacing=6)
@@ -359,19 +466,19 @@ class AppConfigDialog(Adw.Window):
         page_grid.attach(Gtk.Label(label="SFTP Path", xalign=0), 0, 1, 1, 1)
         page_grid.attach(self.sftp_path_entry, 1, 1, 1, 1)
 
-        self.scp_path_entry = Gtk.Entry(text=config.scp_path, activates_default=True)
-        page_grid.attach(Gtk.Label(label="SCP Path", xalign=0), 0, 2, 1, 1)
-        page_grid.attach(self.scp_path_entry, 1, 2, 1, 1)
+        self.ftp_path_entry = Gtk.Entry(text=config.ftp_path, activates_default=True)
+        page_grid.attach(Gtk.Label(label="FTP Path", xalign=0), 0, 1, 1, 1)
+        page_grid.attach(self.ftp_path_entry, 1, 1, 1, 1)
 
         self.sshpass_path_entry = Gtk.Entry(text=config.sshpass_path, activates_default=True)
         page_grid.attach(Gtk.Label(label="SSHPASS Path", xalign=0), 0, 3, 1, 1)
-        page_grid.attach(self.sshpass_path_entry, 1, 3, 1, 1)
+        page_grid.attach(self.sshpass_path_entry, 1, 2, 1, 1)
 
         self.sudo_path_entry = Gtk.Entry(text=config.sudo_path, activates_default=True)
         page_grid.attach(Gtk.Label(label="SUDO Path", xalign=0), 0, 4, 1, 1)
-        page_grid.attach(self.sudo_path_entry, 1, 4, 1, 1)
+        page_grid.attach(self.sudo_path_entry, 1, 3, 1, 1)
 
-        self.stack.add_titled(page_grid, "binaries", "Binaries")
+        return page_grid
 
     def _build_shortcuts_page(self):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
@@ -402,7 +509,8 @@ class AppConfigDialog(Adw.Window):
             grid.attach(description_label, 1, i, 1, 1)
 
         page_box.append(grid)
-        self.stack.add_titled(page_box, "shortcuts", "Shortcuts")
+
+        return page_box
 
     def _build_variables_page(self):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
@@ -411,7 +519,7 @@ class AppConfigDialog(Adw.Window):
 
         variables = [
             ("{name}", "The name of the connection."),
-            ("{type}", "The type of the connection (e.g. ssh, sftp)."),
+            ("{type}", "The type of the connection (e.g. ssh, sftp, ftp)."),
             ("{folder}", "The folder the connection belongs to."),
             ("{host}", "The hostname or IP address."),
             ("{port}", "The SSH port number."),
@@ -419,7 +527,6 @@ class AppConfigDialog(Adw.Window):
             ("{password}", "The password for the connection (if stored)."),
             ("{identity_file}", "Path to the identity file (if any)."),
             ("{key_passphrase}", "The passphrase for the identity file."),
-            ("{orchestrator_script}", "The orchestrator script for the connection."),
             ("{proxy_port}", "The dynamic SOCKS proxy port (if enabled).")
         ]
 
@@ -430,7 +537,8 @@ class AppConfigDialog(Adw.Window):
             grid.attach(desc_label, 1, i, 1, 1)
 
         page_box.append(grid)
-        self.stack.add_titled(page_box, "variables", "Variables")
+
+        return page_box
 
     def _build_about_page(self, about_info: dict):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_start=20, margin_end=20, margin_top=20, margin_bottom=20)
@@ -461,7 +569,7 @@ class AppConfigDialog(Adw.Window):
         )
         page_box.append(link_button)
 
-        self.stack.add_titled(page_box, "about", "About")
+        return page_box
 
     def _create_script_list_page(self, commands):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
@@ -484,7 +592,7 @@ class AppConfigDialog(Adw.Window):
 
         return page_box
 
-    def _create_cmds_list_page(self, commands: dict):
+    def _build_cmds_list_page(self, commands: dict):
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=10, margin_end=10, margin_top=10, margin_bottom=10)
 
         list_box = Gtk.ListBox()
@@ -613,18 +721,18 @@ class AppConfigDialog(Adw.Window):
         dialog.connect("response", on_response)
         dialog.present()
 
-    def _add_option_entry(self, text=""):
+    def _add_option_entry(self, list_box, text=""):
         entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         entry = Gtk.Entry(text=text, hexpand=True)
         remove_button = Gtk.Button(icon_name="list-remove-symbolic")
-        remove_button.connect("clicked", self._on_remove_option_clicked, entry_box)
+        remove_button.connect("clicked", self._on_remove_option_clicked, list_box, entry_box)
 
         entry_box.append(entry)
         entry_box.append(remove_button)
-        self.additional_options_box.append(entry_box)
+        list_box.append(entry_box)
 
-    def _on_remove_option_clicked(self, button, box_to_remove):
-        self.additional_options_box.remove(box_to_remove)
+    def _on_remove_option_clicked(self, button, list_box, box_to_remove):
+        list_box.remove(box_to_remove)
 
     def get_data(self) -> _app_config.AppConfig:
         font_desc = self.font_chooser.get_font_desc()
@@ -651,11 +759,20 @@ class AppConfigDialog(Adw.Window):
         end_iter = self.custom_css_buffer.get_end_iter()
         custom_css_text = self.custom_css_buffer.get_text(start_iter, end_iter, True)
 
-        additional_options = []
-        child = self.additional_options_box.get_first_child()
+        ssh_additional_options = []
+        child = self.additional_ssh_options_box.get_first_child()
         while child:
             entry = child.get_first_child()
-            additional_options.append(entry.get_text())
+            if entry.get_text():
+                ssh_additional_options.append(entry.get_text())
+            child = child.get_next_sibling()
+
+        sftp_additional_options = []
+        child = self.additional_sftp_options_box.get_first_child()
+        while child:
+            entry = child.get_first_child()
+            if entry.get_text():
+                sftp_additional_options.append(entry.get_text())
             child = child.get_next_sibling()
 
         return _app_config.AppConfig(
@@ -683,12 +800,21 @@ class AppConfigDialog(Adw.Window):
             ssh_verbose=self.ssh_verbose.get_active(),
             ssh_force_pty=self.ssh_force_pty.get_active(),
             ssh_unique_sock_proxy=self.ssh_unique_sock_proxy.get_active(),
-            ssh_additional_options=[opt for opt in additional_options if opt],
-            local_cmds=get_cmds_from_list(self.local_cmds_list),
-            remote_cmds=get_cmds_from_list(self.remote_cmds_list),
+            ssh_additional_options=[opt for opt in ssh_additional_options if opt],
+            mosh_local_echo=self.mosh_local_echo.get_selected_item().get_string(),
+            sftp_forward_agent=self.sftp_forward_agent.get_active(),
+            sftp_compression=self.sftp_compression.get_active(),
+            sftp_verbose=self.sftp_verbose.get_active(),
+            sftp_additional_options=[opt for opt in sftp_additional_options if opt],
+            ftp_active=self.ftp_active.get_active(),
+            ftp_passive=self.ftp_passive.get_active(),
+            ftp_trace=self.ftp_trace.get_active(),
+            ftp_verbose=self.ftp_verbose.get_active(),
+            ssh_local_cmds=get_cmds_from_list(self.ssh_local_cmds_list),
+            ssh_remote_cmds=get_cmds_from_list(self.ssh_remote_cmds_list),
             ssh_path=self.ssh_path_entry.get_text(),
             sftp_path=self.sftp_path_entry.get_text(),
-            scp_path=self.scp_path_entry.get_text(),
+            ftp_path=self.ftp_path_entry.get_text(),
             sshpass_path=self.sshpass_path_entry.get_text(),
             sudo_path=self.sudo_path_entry.get_text(),
             custom_css=custom_css_text,
