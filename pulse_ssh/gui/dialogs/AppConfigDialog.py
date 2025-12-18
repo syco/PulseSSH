@@ -360,18 +360,18 @@ class AppConfigDialog(Adw.Window):
         options_group = Adw.PreferencesGroup(title="Additional Options")
         page.add(options_group)
 
-        self.additional_options_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.additional_ssh_options_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True, min_content_height=100)
-        scrolled_window.set_child(self.additional_options_box)
+        scrolled_window.set_child(self.additional_ssh_options_box)
         options_group.add(scrolled_window)
 
         if config.ssh_additional_options:
             for option in config.ssh_additional_options:
-                self._add_option_entry(option)
+                self._add_option_entry(self.additional_ssh_options_box, option)
 
         add_button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, margin_top=6)
         add_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_button.connect("clicked", lambda w: self._add_option_entry())
+        add_button.connect("clicked", lambda w: self._add_option_entry(self.additional_ssh_options_box))
         add_button.set_halign(Gtk.Align.CENTER)
         add_button_box.append(add_button)
         options_group.add(add_button_box)
@@ -396,18 +396,18 @@ class AppConfigDialog(Adw.Window):
         options_group = Adw.PreferencesGroup(title="Additional Options")
         page.add(options_group)
 
-        self.additional_options_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.additional_sftp_options_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True, min_content_height=100)
-        scrolled_window.set_child(self.additional_options_box)
+        scrolled_window.set_child(self.additional_sftp_options_box)
         options_group.add(scrolled_window)
 
         if config.sftp_additional_options:
             for option in config.sftp_additional_options:
-                self._add_option_entry(option)
+                self._add_option_entry(self.additional_sftp_options_box, option)
 
         add_button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, margin_top=6)
         add_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_button.connect("clicked", lambda w: self._add_option_entry())
+        add_button.connect("clicked", lambda w: self._add_option_entry(self.additional_sftp_options_box))
         add_button.set_halign(Gtk.Align.CENTER)
         add_button_box.append(add_button)
         options_group.add(add_button_box)
@@ -700,18 +700,18 @@ class AppConfigDialog(Adw.Window):
         dialog.connect("response", on_response)
         dialog.present()
 
-    def _add_option_entry(self, text=""):
+    def _add_option_entry(self, list_box, text=""):
         entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         entry = Gtk.Entry(text=text, hexpand=True)
         remove_button = Gtk.Button(icon_name="list-remove-symbolic")
-        remove_button.connect("clicked", self._on_remove_option_clicked, entry_box)
+        remove_button.connect("clicked", self._on_remove_option_clicked, list_box, entry_box)
 
         entry_box.append(entry)
         entry_box.append(remove_button)
-        self.additional_options_box.append(entry_box)
+        list_box.append(entry_box)
 
-    def _on_remove_option_clicked(self, button, box_to_remove):
-        self.additional_options_box.remove(box_to_remove)
+    def _on_remove_option_clicked(self, button, list_box, box_to_remove):
+        list_box.remove(box_to_remove)
 
     def get_data(self) -> _app_config.AppConfig:
         font_desc = self.font_chooser.get_font_desc()
@@ -738,11 +738,20 @@ class AppConfigDialog(Adw.Window):
         end_iter = self.custom_css_buffer.get_end_iter()
         custom_css_text = self.custom_css_buffer.get_text(start_iter, end_iter, True)
 
-        additional_options = []
-        child = self.additional_options_box.get_first_child()
+        ssh_additional_options = []
+        child = self.additional_ssh_options_box.get_first_child()
         while child:
             entry = child.get_first_child()
-            additional_options.append(entry.get_text())
+            if entry.get_text():
+                ssh_additional_options.append(entry.get_text())
+            child = child.get_next_sibling()
+
+        sftp_additional_options = []
+        child = self.additional_sftp_options_box.get_first_child()
+        while child:
+            entry = child.get_first_child()
+            if entry.get_text():
+                sftp_additional_options.append(entry.get_text())
             child = child.get_next_sibling()
 
         return _app_config.AppConfig(
@@ -770,11 +779,11 @@ class AppConfigDialog(Adw.Window):
             ssh_verbose=self.ssh_verbose.get_active(),
             ssh_force_pty=self.ssh_force_pty.get_active(),
             ssh_unique_sock_proxy=self.ssh_unique_sock_proxy.get_active(),
-            ssh_additional_options=[opt for opt in additional_options if opt],
+            ssh_additional_options=[opt for opt in ssh_additional_options if opt],
             sftp_forward_agent=self.sftp_forward_agent.get_active(),
             sftp_compression=self.sftp_compression.get_active(),
             sftp_verbose=self.sftp_verbose.get_active(),
-            sftp_additional_options=[opt for opt in additional_options if opt],
+            sftp_additional_options=[opt for opt in sftp_additional_options if opt],
             ftp_active=self.ftp_active.get_active(),
             ftp_passive=self.ftp_passive.get_active(),
             ftp_trace=self.ftp_trace.get_active(),
