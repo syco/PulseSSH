@@ -50,9 +50,14 @@ class MainWindow(BASE_WINDOW_CLASS):
 
         self.top_bar_view = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
 
-        self.top_bar_view.add_css_class("custom-topbar-box")
-
         self.sidebar_toggle_btn = Gtk.Button()
+
+        self.sidebar_toggle_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.sidebar_toggle_container.append(self.sidebar_toggle_btn)
+        self.sidebar_toggle_container.set_hexpand(False)
+        self.sidebar_toggle_container.add_css_class("toolbar")
+        self.sidebar_toggle_container.add_css_class("toolbar_with_bg")
+
         self.split_view = Adw.OverlaySplitView()
 
         self.css_provider = Gtk.CssProvider()
@@ -90,30 +95,19 @@ class MainWindow(BASE_WINDOW_CLASS):
         self.split_view.set_sidebar_position(Gtk.PositionType.RIGHT if _globals.app_config.sidebar_on_right else Gtk.PositionType.LEFT)
 
         css = f"""
-        .custom-topbar-box {{
-            background-color: @headerbar_bg_color;
-            border: none;
-        }}
-        .custom-sidebar-toggle-button {{
-            margin: 6px;
-            min-width: 0px;
-            min-height: 0px;
-        }}
-        .custom-sidebar-toggle-button:hover {{
-            background-color: @theme_hover_color;
-        }}
-        .custom-sidebar-toggle-button:active {{
-            background-color: @theme_active_color;
-        }}
         {_globals.app_config.custom_css or ""}
+        .toolbar_with_bg {{
+            background-color: @headerbar_bg_color;
+            border-bottom: 1px solid @headerbar_shade_color;
+        }}
         """
         self.css_provider.load_from_data(css.encode('utf-8'))
 
-        self.top_bar_view.remove(self.sidebar_toggle_btn)
+        self.top_bar_view.remove(self.sidebar_toggle_container)
         if _globals.app_config.sidebar_on_right:
-            self.top_bar_view.append(self.sidebar_toggle_btn)
+            self.top_bar_view.append(self.sidebar_toggle_container)
         else:
-            self.top_bar_view.prepend(self.sidebar_toggle_btn)
+            self.top_bar_view.prepend(self.sidebar_toggle_container)
 
         self.set_sidebar_toggle_btn_icon()
 
@@ -125,27 +119,29 @@ class MainWindow(BASE_WINDOW_CLASS):
         self.panel_stack = Adw.ViewStack()
 
         self.connections_view = _connections_view.ConnectionsView(self)
-        connections_widget = self.connections_view.getAdwToolbarView()
+        connections_widget = self.connections_view.get_adw_toolbar_view()
         self.panel_stack.add_titled(connections_widget, "connections", "")
         self.panel_stack.get_page(connections_widget).set_icon_name("utilities-terminal-symbolic")
 
         self.clusters_view = _clusters_view.ClustersView(self)
-        clusters_widget = self.clusters_view.getAdwToolbarView()
+        clusters_widget = self.clusters_view.get_adw_toolbar_view()
         self.panel_stack.add_titled(clusters_widget, "clusters", "")
         self.panel_stack.get_page(clusters_widget).set_icon_name("view-group-symbolic")
 
         self.history_view = _history_view.HistoryView(self)
-        history_widget = self.history_view.getAdwToolbarView()
+        history_widget = self.history_view.get_adw_toolbar_view()
         self.panel_stack.add_titled(history_widget, "history", "")
         self.panel_stack.get_page(history_widget).set_icon_name("view-history-symbolic")
 
         stack_switcher = Adw.ViewSwitcher(policy=Adw.ViewSwitcherPolicy.WIDE)
         stack_switcher.set_stack(self.panel_stack)
+        stack_switcher.add_css_class("toolbar")
 
-        switcher_container = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False, title_widget=stack_switcher)
-
-        self.side_panel = Adw.ToolbarView(content = self.panel_stack)
-        self.side_panel.add_top_bar(switcher_container)
+        side_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        side_panel.set_hexpand(True)
+        side_panel.set_vexpand(True)
+        side_panel.append(stack_switcher)
+        side_panel.append(self.panel_stack)
 
         notebook = Adw.TabView()
         notebook.set_hexpand(True)
@@ -161,7 +157,6 @@ class MainWindow(BASE_WINDOW_CLASS):
 
         self.sidebar_toggle_btn.set_tooltip_text("Toggle Sidebar")
         self.sidebar_toggle_btn.connect("clicked", self.on_toggle_sidebar)
-        self.sidebar_toggle_btn.add_css_class("custom-sidebar-toggle-button")
 
         self.set_sidebar_toggle_btn_icon()
 
@@ -171,7 +166,7 @@ class MainWindow(BASE_WINDOW_CLASS):
         content_toolbar_view.append(self.top_bar_view)
         content_toolbar_view.append(notebook)
 
-        self.split_view.set_sidebar(self.side_panel)
+        self.split_view.set_sidebar(side_panel)
         self.split_view.set_content(content_toolbar_view)
         self.split_view.set_collapsed(False)
         self.split_view.set_min_sidebar_width(200)
@@ -187,7 +182,7 @@ class MainWindow(BASE_WINDOW_CLASS):
         self.toast_overlay.set_child(toolbar_view)
 
         if _globals.app_config.use_adw_window:
-            header_bar = Adw.HeaderBar()
+            header_bar = Adw.HeaderBar(show_start_title_buttons=True, show_end_title_buttons=True)
             toolbar_view.add_top_bar(header_bar)
 
             self.set_content(self.toast_overlay)
