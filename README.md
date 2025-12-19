@@ -1,5 +1,8 @@
 # PulseSSH
 
+<center><img width="512" height="512" alt="pulse_ssh" src="https://github.com/user-attachments/assets/bd950657-90c4-4f42-a8c4-131691a56d2d" /></center>
+
+
 PulseSSH is a modern terminal manager designed for productivity and ease of use. Manage multiple SSH, MOSH, SFTP, and FTP sessions, organize connections into folders, configure clusters, and customize your workspace with a beautiful UI and advanced automation options.
 
 <img width="930" height="758" alt="image" src="https://github.com/user-attachments/assets/bea56efa-dfab-46ea-942c-b74cc7ee1585" />
