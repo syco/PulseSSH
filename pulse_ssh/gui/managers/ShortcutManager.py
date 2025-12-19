@@ -180,6 +180,9 @@ class ShortcutManager:
         return True
 
     def _on_search_shortcut(self, *args):
+        self.app_window.split_view.set_collapsed(False)
+        self.app_window.set_sidebar_toggle_btn_icon()
+
         if self.app_window.panel_stack.get_visible_child_name() == "connections":
             self.app_window.connections_view.filter_header_bar.set_visible(True)
             self.app_window.connections_view.filter_entry.grab_focus()
