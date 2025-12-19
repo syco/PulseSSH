@@ -196,7 +196,17 @@ class CursesWindow:
                 if uuid_to_execute:
                     conn_details = _globals.connections.get(uuid_to_execute)
                     if conn_details:
-                        final_cmd, proxy_port = _utils.build_ssh_command(_globals.app_config, conn_details)
+                        final_cmd = None
+                        proxy_port = None
+
+                        if conn_details.type == 'ssh':
+                            final_cmd, proxy_port = _utils.build_ssh_command(_globals.app_config, conn_details)
+                        elif conn_details.type == 'mosh':
+                            final_cmd, proxy_port = _utils.build_mosh_command(_globals.app_config, conn_details)
+                        elif conn_details.type == 'sftp':
+                            final_cmd, proxy_port = _utils.build_sftp_command(_globals.app_config, conn_details)
+                        elif conn_details.type == 'ftp':
+                            final_cmd, proxy_port = _utils.build_ftp_command(_globals.app_config, conn_details)
 
                         if final_cmd:
                             curses.endwin()

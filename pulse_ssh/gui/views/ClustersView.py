@@ -39,7 +39,7 @@ class ClustersView():
         item = list_item.get_item()
         label.set_markup(f'<span font_desc="Monospace" weight="bold">»</span> {item.name}')
 
-    def getAdwToolbarView(self) -> Adw.ToolbarView:
+    def get_adw_toolbar_view(self) -> Adw.ToolbarView:
         self.root_store = Gio.ListStore(item_type=_cluster_list_item.ClusterListItem)
 
         expression = Gtk.PropertyExpression.new(_cluster_list_item.ClusterListItem, None, "name")
@@ -74,29 +74,37 @@ class ClustersView():
         filter_key_controller.connect("key-pressed", self._on_filter_entry_key_pressed)
         self.filter_entry.add_controller(filter_key_controller)
 
-        content = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
-        content.set_child(self.list_view)
+        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
+        scrolled_window.set_child(self.list_view)
 
-        bottom_bar = Adw.HeaderBar(show_title = False, show_start_title_buttons=False, show_end_title_buttons=False)
-        add_btn = Gtk.Button(icon_name="list-add-symbolic")
-        add_btn.connect("clicked", self.open_add_modal)
-        bottom_bar.pack_start(add_btn)
-
-        config_btn = Gtk.Button(icon_name="emblem-system-symbolic")
-        config_btn.connect("clicked", self.open_appconfig_modal)
-        bottom_bar.pack_end(config_btn)
+        bottom_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        bottom_bar.add_css_class("toolbar")
 
         local_term_btn = Gtk.Button(icon_name="utilities-terminal-symbolic")
         local_term_btn.connect("clicked", self.open_local_terminal)
-        bottom_bar.pack_end(local_term_btn)
+        bottom_bar.append(local_term_btn)
 
-        self.filter_header_bar = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False)
-        self.filter_header_bar.set_title_widget(self.filter_entry)
+        expander = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        expander.set_hexpand(True)
+        bottom_bar.append(expander)
+
+        add_btn = Gtk.Button(icon_name="list-add-symbolic")
+        add_btn.connect("clicked", self.open_add_modal)
+        bottom_bar.append(add_btn)
+
+        config_btn = Gtk.Button(icon_name="emblem-system-symbolic")
+        config_btn.connect("clicked", self.open_appconfig_modal)
+        bottom_bar.append(config_btn)
+
+        self.filter_header_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        self.filter_header_bar.append(self.filter_entry)
+        self.filter_header_bar.add_css_class("toolbar")
         self.filter_header_bar.set_visible(False)
 
-        toolbar_view = Adw.ToolbarView(content = content)
-        toolbar_view.add_top_bar(self.filter_header_bar)
-        toolbar_view.add_bottom_bar(bottom_bar)
+        toolbar_view = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        toolbar_view.append(self.filter_header_bar)
+        toolbar_view.append(scrolled_window)
+        toolbar_view.append(bottom_bar)
 
         self.populate_tree()
 

@@ -48,15 +48,26 @@ class MainWindow(BASE_WINDOW_CLASS):
         if _gui_globals.cache_config.window_maximized:
             self.maximize()
 
-        self.split_view = Adw.NavigationSplitView()
+        self.top_bar_view = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+
+        self.sidebar_toggle_btn = Gtk.Button()
+
+        self.sidebar_toggle_container = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.sidebar_toggle_container.append(self.sidebar_toggle_btn)
+        self.sidebar_toggle_container.set_hexpand(False)
+        self.sidebar_toggle_container.add_css_class("toolbar")
+        self.sidebar_toggle_container.add_css_class("toolbar_with_bg")
+
+        self.split_view = Adw.OverlaySplitView()
 
         self.css_provider = Gtk.CssProvider()
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(), self.css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
-        self.apply_config_settings()
         self._build_ui()
+
+        self.apply_config_settings()
 
     def fix_icon(self, window):
         icon_dir = os.path.join(_utils.project_root, 'res', 'icons', 'hicolor', '512x512', 'apps')
@@ -82,7 +93,23 @@ class MainWindow(BASE_WINDOW_CLASS):
         }
         Adw.StyleManager.get_default().set_color_scheme(color_scheme_map.get(_globals.app_config.color_scheme, Adw.ColorScheme.DEFAULT))
         self.split_view.set_sidebar_position(Gtk.PositionType.RIGHT if _globals.app_config.sidebar_on_right else Gtk.PositionType.LEFT)
-        self.css_provider.load_from_data((_globals.app_config.custom_css or "").encode('utf-8'))
+
+        css = f"""
+        {_globals.app_config.custom_css or ""}
+        .toolbar_with_bg {{
+            background-color: @headerbar_bg_color;
+            border-bottom: 1px solid @headerbar_shade_color;
+        }}
+        """
+        self.css_provider.load_from_data(css.encode('utf-8'))
+
+        self.top_bar_view.remove(self.sidebar_toggle_container)
+        if _globals.app_config.sidebar_on_right:
+            self.top_bar_view.append(self.sidebar_toggle_container)
+        else:
+            self.top_bar_view.prepend(self.sidebar_toggle_container)
+
+        self.set_sidebar_toggle_btn_icon()
 
     def _build_ui(self):
         self.connect("realize", self.on_realize)
@@ -92,30 +119,29 @@ class MainWindow(BASE_WINDOW_CLASS):
         self.panel_stack = Adw.ViewStack()
 
         self.connections_view = _connections_view.ConnectionsView(self)
-        connections_widget = self.connections_view.getAdwToolbarView()
+        connections_widget = self.connections_view.get_adw_toolbar_view()
         self.panel_stack.add_titled(connections_widget, "connections", "")
         self.panel_stack.get_page(connections_widget).set_icon_name("utilities-terminal-symbolic")
 
         self.clusters_view = _clusters_view.ClustersView(self)
-        clusters_widget = self.clusters_view.getAdwToolbarView()
+        clusters_widget = self.clusters_view.get_adw_toolbar_view()
         self.panel_stack.add_titled(clusters_widget, "clusters", "")
         self.panel_stack.get_page(clusters_widget).set_icon_name("view-group-symbolic")
 
         self.history_view = _history_view.HistoryView(self)
-        history_widget = self.history_view.getAdwToolbarView()
+        history_widget = self.history_view.get_adw_toolbar_view()
         self.panel_stack.add_titled(history_widget, "history", "")
         self.panel_stack.get_page(history_widget).set_icon_name("view-history-symbolic")
 
         stack_switcher = Adw.ViewSwitcher(policy=Adw.ViewSwitcherPolicy.WIDE)
         stack_switcher.set_stack(self.panel_stack)
+        stack_switcher.add_css_class("toolbar")
 
-        switcher_container = Adw.HeaderBar(show_start_title_buttons=False, show_end_title_buttons=False, title_widget=stack_switcher)
-
-        self.side_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.side_panel.append(switcher_container)
-        self.side_panel.append(self.panel_stack)
-
-        sidebar_page = Adw.NavigationPage.new(self.side_panel, "Sidebar")
+        side_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        side_panel.set_hexpand(True)
+        side_panel.set_vexpand(True)
+        side_panel.append(stack_switcher)
+        side_panel.append(self.panel_stack)
 
         notebook = Adw.TabView()
         notebook.set_hexpand(True)
@@ -127,15 +153,21 @@ class MainWindow(BASE_WINDOW_CLASS):
         _gui_globals.all_notebooks.append(notebook)
 
         tab_bar = Adw.TabBar(autohide=False, expand_tabs=False, view=notebook)
+        tab_bar.set_hexpand(True)
+
+        self.sidebar_toggle_btn.set_tooltip_text("Toggle Sidebar")
+        self.sidebar_toggle_btn.connect("clicked", self.on_toggle_sidebar)
+
+        self.set_sidebar_toggle_btn_icon()
+
+        self.top_bar_view.append(tab_bar)
 
         content_toolbar_view = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        content_toolbar_view.append(tab_bar)
+        content_toolbar_view.append(self.top_bar_view)
         content_toolbar_view.append(notebook)
 
-        content_page = Adw.NavigationPage.new(content_toolbar_view, "Terminals")
-
-        self.split_view.set_sidebar(sidebar_page)
-        self.split_view.set_content(content_page)
+        self.split_view.set_sidebar(side_panel)
+        self.split_view.set_content(content_toolbar_view)
         self.split_view.set_collapsed(False)
         self.split_view.set_min_sidebar_width(200)
         self.split_view.set_max_sidebar_width(400)
@@ -150,7 +182,7 @@ class MainWindow(BASE_WINDOW_CLASS):
         self.toast_overlay.set_child(toolbar_view)
 
         if _globals.app_config.use_adw_window:
-            header_bar = Adw.HeaderBar()
+            header_bar = Adw.HeaderBar(show_start_title_buttons=True, show_end_title_buttons=True)
             toolbar_view.add_top_bar(header_bar)
 
             self.set_content(self.toast_overlay)
@@ -164,6 +196,16 @@ class MainWindow(BASE_WINDOW_CLASS):
     def on_realize(self, widget):
         if _globals.app_config.encryption_enabled and _globals.app_config.encryption_canary:
             self._prompt_for_decryption_password()
+
+    def set_sidebar_toggle_btn_icon(self):
+        if self.split_view.get_collapsed() == _globals.app_config.sidebar_on_right:
+            self.sidebar_toggle_btn.set_icon_name('arrow-left-symbolic')
+        else:
+            self.sidebar_toggle_btn.set_icon_name('arrow-right-symbolic')
+
+    def on_toggle_sidebar(self, button):
+        self.split_view.set_collapsed(not self.split_view.get_collapsed())
+        self.set_sidebar_toggle_btn_icon()
 
     def _prompt_for_decryption_password(self):
         dialog = _password_dialog.PasswordDialog(
