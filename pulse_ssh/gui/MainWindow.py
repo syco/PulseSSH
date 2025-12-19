@@ -168,7 +168,7 @@ class MainWindow(BASE_WINDOW_CLASS):
 
         self.split_view.set_sidebar(side_panel)
         self.split_view.set_content(content_toolbar_view)
-        self.split_view.set_collapsed(False)
+        self.split_view.set_collapsed(not _gui_globals.cache_config.sidebar_visible)
         self.split_view.set_min_sidebar_width(200)
         self.split_view.set_max_sidebar_width(400)
         self.split_view.set_sidebar_width_fraction(0.2)
@@ -278,6 +278,9 @@ class MainWindow(BASE_WINDOW_CLASS):
                 _gui_globals.cache_config.window_height = self.get_height()
 
             _gui_globals.cache_config.window_maximized = self.is_maximized()
+
+            _gui_globals.cache_config.sidebar_visible = not self.split_view.get_collapsed()
+
             _utils.save_cache_config(_globals.config_dir, _globals.readonly, _gui_globals.cache_config)
 
     def on_app_close_request(self, window):
