@@ -56,8 +56,17 @@ class ConnectionsView():
 
         if item.type:
             label.set_markup(f'<span font_desc="Monospace" weight="bold">{item.type.upper()}://</span>{item.name}')
+            if item.type == "ssh":
+                expander.add_css_class("connection-item-ssh")
+            elif item.type == "mosh":
+                expander.add_css_class("connection-item-mosh")
+            elif item.type == "sftp":
+                expander.add_css_class("connection-item-sftp")
+            elif item.type == "ftp":
+                expander.add_css_class("connection-item-ftp")
         else:
             label.set_text(item.name)
+            expander.add_css_class("connection-item-folder")
         expander.set_list_row(tree_row)
 
         drag_source = Gtk.DragSource()

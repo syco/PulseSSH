@@ -12,6 +12,12 @@ class AppConfig:
     font_size: int = 12
     theme: str = "WhiteOnBlack"
     custom_css: str = "* { \n    border-radius: 3px;\n}"
+    tree_colors_enabled: bool = True
+    tree_color_folder: Optional[str] = None
+    tree_color_ssh: Optional[str] = None
+    tree_color_mosh: Optional[str] = None
+    tree_color_sftp: Optional[str] = None
+    tree_color_ftp: Optional[str] = None
     cursor_shape: str = "block"
     split_at_root: bool = False
     on_disconnect_behavior: str = "wait_for_key"
