@@ -121,6 +121,9 @@ class AppConfigDialog(Adw.Window):
         appearance_page = self._build_appearance_page(config)
         self.stack.add_titled(appearance_page, "appearance", "Appearance")
 
+        colors_page = self._build_colors_page(config)
+        self.stack.add_titled(colors_page, "tree_colors", "Tree Colors")
+
         custom_css_page = self._build_custom_css_page(config)
         self.stack.add_titled(custom_css_page, "custom_css", "Custom CSS")
 
@@ -231,6 +234,81 @@ class AppConfigDialog(Adw.Window):
 
         self.use_adw_window = Adw.SwitchRow(title="Use Adwaita Window", subtitle="Requires restart", active=getattr(config, 'use_adw_window', False))
         appearance_group.add(self.use_adw_window)
+
+        return page
+
+    def _on_colors_enabled_toggled(self, switch, _):
+        is_active = switch.get_active()
+        self.tree_color_folder_button.set_sensitive(is_active)
+        self.tree_color_ssh_button.set_sensitive(is_active)
+        self.tree_color_mosh_button.set_sensitive(is_active)
+        self.tree_color_sftp_button.set_sensitive(is_active)
+        self.tree_color_ftp_button.set_sensitive(is_active)
+
+    def _build_colors_page(self, config: _app_config.AppConfig):
+        page = Adw.PreferencesPage()
+
+        colors_group = Adw.PreferencesGroup()
+        page.add(colors_group)
+
+        self.tree_colors_enabled = Adw.SwitchRow(title="Enable", active=config.tree_colors_enabled)
+        self.tree_colors_enabled.connect("notify::active", self._on_colors_enabled_toggled)
+        colors_group.add(self.tree_colors_enabled)
+
+        def hex_to_rgba(hex_color):
+            rgba = Gdk.RGBA()
+            rgba.parse(hex_color)
+            return rgba
+
+        self.tree_color_folder_button = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(modal=True))
+        if config.tree_color_folder:
+            self.tree_color_folder_button.set_rgba(hex_to_rgba(config.tree_color_folder))
+        else:
+            self.tree_color_folder_button.set_rgba(hex_to_rgba('#ffffff'))
+        tree_color_folder_row = Adw.ActionRow(title="Folder Color")
+        tree_color_folder_row.add_suffix(self.tree_color_folder_button)
+        tree_color_folder_row.set_activatable_widget(self.tree_color_folder_button)
+        colors_group.add(tree_color_folder_row)
+
+        self.tree_color_ssh_button = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(modal=True))
+        if config.tree_color_ssh:
+            self.tree_color_ssh_button.set_rgba(hex_to_rgba(config.tree_color_ssh))
+        else:
+            self.tree_color_ssh_button.set_rgba(hex_to_rgba('#8ff0a4'))
+        tree_color_ssh_row = Adw.ActionRow(title="SSH Color")
+        tree_color_ssh_row.add_suffix(self.tree_color_ssh_button)
+        tree_color_ssh_row.set_activatable_widget(self.tree_color_ssh_button)
+        colors_group.add(tree_color_ssh_row)
+
+        self.tree_color_mosh_button = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(modal=True))
+        if config.tree_color_mosh:
+            self.tree_color_mosh_button.set_rgba(hex_to_rgba(config.tree_color_mosh))
+        else:
+            self.tree_color_mosh_button.set_rgba(hex_to_rgba('#62a0ea'))
+        tree_color_mosh_row = Adw.ActionRow(title="MOSH Color")
+        tree_color_mosh_row.add_suffix(self.tree_color_mosh_button)
+        tree_color_mosh_row.set_activatable_widget(self.tree_color_mosh_button)
+        colors_group.add(tree_color_mosh_row)
+
+        self.tree_color_sftp_button = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(modal=True))
+        if config.tree_color_sftp:
+            self.tree_color_sftp_button.set_rgba(hex_to_rgba(config.tree_color_sftp))
+        else:
+            self.tree_color_sftp_button.set_rgba(hex_to_rgba('#ffbe6f'))
+        tree_color_sftp_row = Adw.ActionRow(title="SFTP Color")
+        tree_color_sftp_row.add_suffix(self.tree_color_sftp_button)
+        tree_color_sftp_row.set_activatable_widget(self.tree_color_sftp_button)
+        colors_group.add(tree_color_sftp_row)
+
+        self.tree_color_ftp_button = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(modal=True))
+        if config.tree_color_ftp:
+            self.tree_color_ftp_button.set_rgba(hex_to_rgba(config.tree_color_ftp))
+        else:
+            self.tree_color_ftp_button.set_rgba(hex_to_rgba('#dc8add'))
+        tree_color_ftp_row = Adw.ActionRow(title="FTP Color")
+        tree_color_ftp_row.add_suffix(self.tree_color_ftp_button)
+        tree_color_ftp_row.set_activatable_widget(self.tree_color_ftp_button)
+        colors_group.add(tree_color_ftp_row)
 
         return page
 
@@ -775,10 +853,19 @@ class AppConfigDialog(Adw.Window):
                 sftp_additional_options.append(entry.get_text())
             child = child.get_next_sibling()
 
+        def rgba_to_hex(rgba: Gdk.RGBA) -> str:
+            return f"#{int(rgba.red * 255):02x}{int(rgba.green * 255):02x}{int(rgba.blue * 255):02x}"
+
         return _app_config.AppConfig(
             font_family=font_desc.get_family(),
             font_size=int(font_size),
             theme=self.theme.get_selected_item().name,
+            tree_colors_enabled=self.tree_colors_enabled.get_active(),
+            tree_color_folder=rgba_to_hex(self.tree_color_folder_button.get_rgba()),
+            tree_color_ssh=rgba_to_hex(self.tree_color_ssh_button.get_rgba()),
+            tree_color_mosh=rgba_to_hex(self.tree_color_mosh_button.get_rgba()),
+            tree_color_sftp=rgba_to_hex(self.tree_color_sftp_button.get_rgba()),
+            tree_color_ftp=rgba_to_hex(self.tree_color_ftp_button.get_rgba()),
             cursor_shape=cursor_shape,
             split_at_root=self.split_at_root.get_active(),
             shell_program=self.shell_program.get_model().get_string(self.shell_program.get_selected()),

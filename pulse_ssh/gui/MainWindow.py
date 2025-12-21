@@ -94,14 +94,32 @@ class MainWindow(BASE_WINDOW_CLASS):
         Adw.StyleManager.get_default().set_color_scheme(color_scheme_map.get(_globals.app_config.color_scheme, Adw.ColorScheme.DEFAULT))
         self.split_view.set_sidebar_position(Gtk.PositionType.RIGHT if _globals.app_config.sidebar_on_right else Gtk.PositionType.LEFT)
 
-        css = f"""
-        {_globals.app_config.custom_css or ""}
+
+        custom_css = _globals.app_config.custom_css or ""
+
+        more_css = f"""
         .toolbar_with_bg {{
             background-color: @headerbar_bg_color;
             border-bottom: 1px solid @headerbar_shade_color;
         }}
         """
-        self.css_provider.load_from_data(css.encode('utf-8'))
+
+        color_styles = []
+        if _globals.app_config.tree_colors_enabled:
+            if _globals.app_config.tree_color_folder:
+                color_styles.append(f".connection-item-folder label {{ color: {_globals.app_config.tree_color_folder}; }}")
+            if _globals.app_config.tree_color_ssh:
+                color_styles.append(f".connection-item-ssh label {{ color: {_globals.app_config.tree_color_ssh}; }}")
+            if _globals.app_config.tree_color_mosh:
+                color_styles.append(f".connection-item-mosh label {{ color: {_globals.app_config.tree_color_mosh}; }}")
+            if _globals.app_config.tree_color_sftp:
+                color_styles.append(f".connection-item-sftp label {{ color: {_globals.app_config.tree_color_sftp}; }}")
+            if _globals.app_config.tree_color_ftp:
+                color_styles.append(f".connection-item-ftp label {{ color: {_globals.app_config.tree_color_ftp}; }}")
+
+        full_css = custom_css + "\n" + more_css + "\n" + "\n".join(color_styles)
+
+        self.css_provider.load_from_data(full_css.encode('utf-8'))
 
         self.top_bar_view.remove(self.sidebar_toggle_container)
         if _globals.app_config.sidebar_on_right:
