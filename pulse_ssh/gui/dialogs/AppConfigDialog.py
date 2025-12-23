@@ -545,17 +545,16 @@ class AppConfigDialog(Adw.Window):
         page_grid.attach(self.sftp_path_entry, 1, 1, 1, 1)
 
         self.ftp_path_entry = Gtk.Entry(text=config.ftp_path, activates_default=True)
-        page_grid.attach(Gtk.Label(label="FTP Path", xalign=0), 0, 1, 1, 1)
-        page_grid.attach(self.ftp_path_entry, 1, 1, 1, 1)
+        page_grid.attach(Gtk.Label(label="FTP Path", xalign=0), 0, 2, 1, 1)
+        page_grid.attach(self.ftp_path_entry, 1, 2, 1, 1)
 
         self.sshpass_path_entry = Gtk.Entry(text=config.sshpass_path, activates_default=True)
         page_grid.attach(Gtk.Label(label="SSHPASS Path", xalign=0), 0, 3, 1, 1)
-        page_grid.attach(self.sshpass_path_entry, 1, 2, 1, 1)
+        page_grid.attach(self.sshpass_path_entry, 1, 3, 1, 1)
 
         self.sudo_path_entry = Gtk.Entry(text=config.sudo_path, activates_default=True)
         page_grid.attach(Gtk.Label(label="SUDO Path", xalign=0), 0, 4, 1, 1)
-        page_grid.attach(self.sudo_path_entry, 1, 3, 1, 1)
-
+        page_grid.attach(self.sudo_path_entry, 1, 4, 1, 1)
         return page_grid
 
     def _build_shortcuts_page(self):
