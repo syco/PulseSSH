@@ -55,7 +55,7 @@ class ConnectionsView():
         label = expander.get_child()
 
         if item.type:
-            label.set_markup(f'<span font_desc="Monospace" weight="bold">{item.type.upper()}://</span>{item.name}')
+            label.set_markup(f'<span font_desc="Monospace" size="x-small" weight="bold">{item.type.upper()}://</span>{item.name}')
             if item.type == "ssh":
                 expander.add_css_class("connection-item-ssh")
             elif item.type == "mosh":
